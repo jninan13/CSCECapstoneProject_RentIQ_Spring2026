@@ -1,0 +1,1 @@
+# CSCECapstoneProject_RentIQ_Spring2026
