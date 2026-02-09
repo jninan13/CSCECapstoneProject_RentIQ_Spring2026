@@ -84,6 +84,22 @@ const PropertyDetail = () => {
         </button>
 
         <div className="card">
+        {/* Property Image */}
+          <div className="mb-6 overflow-hidden rounded-xl">
+            {property.image_url ? (
+              <img
+                src={property.image_url}
+                alt={property.address}
+                className="h-64 w-full object-cover"
+                loading="lazy"
+              />
+            ) : (
+              <div className="h-64 w-full flex items-center justify-center bg-gray-100 text-gray-500">
+                No image available
+              </div>
+            )}
+          </div>
+
           {/* Header */}
           <div className="flex justify-between items-start mb-6">
             <div>

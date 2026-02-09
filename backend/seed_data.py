@@ -30,7 +30,8 @@ def create_sample_properties():
             "property_type": "single_family",
             "year_built": 2018,
             "lat": 34.0928,
-            "lng": -118.3287
+            "lng": -118.3287,
+            "image_url": "https://www.bhg.com/thmb/H9VV9JNnKl-H1faFXnPlQfNprYw=/1799x0/filters:no_upscale():strip_icc()/white-modern-house-curved-patio-archway-c0a4a3b3-aa51b24d14d0464ea15d36e05aa85ac9.jpg"
         },
         {
             "address": "456 Ocean Avenue",
@@ -44,7 +45,8 @@ def create_sample_properties():
             "property_type": "condo",
             "year_built": 2020,
             "lat": 34.0195,
-            "lng": -118.4912
+            "lng": -118.4912,
+            "image_url" : "https://saterdesign.com/cdn/shop/files/9024-Main-Image_1600x.jpg?v=1744743942"
         },
         {
             "address": "789 Main Street",
@@ -58,7 +60,8 @@ def create_sample_properties():
             "property_type": "townhouse",
             "year_built": 2010,
             "lat": 34.1478,
-            "lng": -118.1445
+            "lng": -118.1445,
+            "image_url" : "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSH5neiCCWJeR2uJXhzexO8nPrHI4JdgKih5A&s"
         },
         {
             "address": "321 Beverly Drive",
@@ -72,7 +75,8 @@ def create_sample_properties():
             "property_type": "single_family",
             "year_built": 2022,
             "lat": 34.0736,
-            "lng": -118.4004
+            "lng": -118.4004,
+            "image_url" : "https://webberstudio.com/wp-content/uploads/2023/02/Stunning-House-Design.jpg"
         },
         {
             "address": "654 Wilshire Boulevard",
@@ -86,7 +90,8 @@ def create_sample_properties():
             "property_type": "condo",
             "year_built": 2015,
             "lat": 34.0522,
-            "lng": -118.2437
+            "lng": -118.2437,
+            "image_url" : "https://hips.hearstapps.com/hmg-prod/images/dutch-colonial-house-style-66956274903da.jpg?crop=1.00xw:0.671xh;0,0.131xh&resize=1120:*"
         },
         {
             "address": "987 Hollywood Hills Road",
@@ -100,7 +105,8 @@ def create_sample_properties():
             "property_type": "single_family",
             "year_built": 2008,
             "lat": 34.1184,
-            "lng": -118.3398
+            "lng": -118.3398,
+            "image_url" : "https://houseplans.co/media/cached_assets/images/house_plan_images/1168ESrd_900x600.jpg"
         },
         {
             "address": "147 Venice Beach Walk",
@@ -114,7 +120,8 @@ def create_sample_properties():
             "property_type": "townhouse",
             "year_built": 2019,
             "lat": 33.9850,
-            "lng": -118.4695
+            "lng": -118.4695,
+            "image_url" : "https://i0.wp.com/houseplans-3d.com/wp-content/uploads/2024/03/Simple-House-Design-25x39-Feet-House-Design-7.5x12-M-4-Beds-3-Bath-front-Cover.jpg?fit=1920%2C1080&ssl=1"
         },
         {
             "address": "258 Downtown Loft",
@@ -128,7 +135,8 @@ def create_sample_properties():
             "property_type": "condo",
             "year_built": 2021,
             "lat": 34.0407,
-            "lng": -118.2468
+            "lng": -118.,
+            "image_url" : "https://www.powerhrg.com/wp-content/uploads/2024/03/PHL_34-20702_3481-1-1.jpg"
         },
     ]
     

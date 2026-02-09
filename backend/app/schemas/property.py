@@ -20,6 +20,7 @@ class PropertyBase(BaseModel):
     year_built: Optional[int] = None
     lat: Optional[float] = None
     lng: Optional[float] = None
+    image_url: str | None = None
 
 
 class PropertyCreate(PropertyBase):

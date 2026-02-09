@@ -22,6 +22,7 @@ class Property(Base):
     bathrooms = Column(Float, nullable=False)
     property_type = Column(String, nullable=False)  # house, condo, townhouse, etc.
     year_built = Column(Integer, nullable=True)
+    image_url = Column(String, nullable=True)
     
     # Location coordinates for radius search
     lat = Column(Float, nullable=True)
