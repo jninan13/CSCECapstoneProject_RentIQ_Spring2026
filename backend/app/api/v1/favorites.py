@@ -104,20 +104,20 @@ async def add_favorite(
     }
 
 
-@router.delete("/{favorite_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/{property_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def remove_favorite(
-    favorite_id: int,
+    property_id: int,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """
-    Remove a property from the current user's favorites.
+    Remove a property from the current user's favorites using the property ID.
     
     Only allows users to remove their own favorites.
     """
     favorite = db.query(Favorite).filter(
         and_(
-            Favorite.id == favorite_id,
+            Favorite.property_id == property_id,
             Favorite.user_id == current_user.id
         )
     ).first()
