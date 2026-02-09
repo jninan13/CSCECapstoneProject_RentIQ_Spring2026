@@ -42,7 +42,7 @@ app.include_router(favorites_router, prefix="/api")
 async def root():
     """Health check endpoint."""
     return {
-        "message": "Property Finder API",
+        "message": "RentIQ API",
         "version": settings.VERSION,
         "status": "operational"
     }

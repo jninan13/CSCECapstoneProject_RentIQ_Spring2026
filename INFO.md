@@ -1,4 +1,4 @@
-# Property Finder - Investment Property Analysis Platform
+# RentIQ - Investment Property Analysis Platform
 
 A full-stack web application for beginner investors to identify profitable real estate properties in their area.
 

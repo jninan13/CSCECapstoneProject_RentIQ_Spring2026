@@ -8,7 +8,7 @@ from typing import Optional
 
 class Settings(BaseSettings):
     # App
-    APP_NAME: str = "Property Finder API"
+    APP_NAME: str = "RentIQ API"
     VERSION: str = "1.0.0"
     DEBUG: bool = False
     

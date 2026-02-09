@@ -20,7 +20,7 @@ const Navbar = () => {
         <div className="flex justify-between h-16">
           <div className="flex items-center">
             <Link to="/" className="flex-shrink-0 flex items-center">
-              <h1 className="text-2xl font-bold text-primary-600">PropertyFinder</h1>
+              <h1 className="text-2xl font-bold text-primary-600">RentIQ</h1>
             </Link>
             
             {isAuthenticated && (
