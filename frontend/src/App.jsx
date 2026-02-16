@@ -9,6 +9,9 @@ import { AuthProvider } from './context/AuthContext';
 import Navbar from './components/Layout/Navbar';
 import PrivateRoute from './components/Layout/PrivateRoute';
 
+//About
+import About from './components/About/About';
+
 // Auth
 import Login from './components/Auth/Login';
 import Register from './components/Auth/Register';
@@ -34,6 +37,8 @@ function App() {
             {/* Public routes */}
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
+            <Route path="/about" element={<About />} />
+
             
             {/* Protected routes */}
             <Route

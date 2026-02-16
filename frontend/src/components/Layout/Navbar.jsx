@@ -23,8 +23,19 @@ const Navbar = () => {
               <h1 className="text-2xl font-bold text-primary-600">RentIQ</h1>
             </Link>
             
+            {/* Always Visible Links */}
+            <div className="hidden md:ml-10 md:flex md:space-x-8">
+              <Link
+                to="/about"
+                className="text-gray-700 hover:text-primary-600 px-3 py-2 rounded-md text-sm font-medium"
+              >
+                About Us
+              </Link>
+
+
             {isAuthenticated && (
-              <div className="hidden md:ml-10 md:flex md:space-x-8">
+              // <div className="hidden md:ml-10 md:flex md:space-x-8">
+            <>
                 <Link
                   to="/properties"
                   className="text-gray-700 hover:text-primary-600 px-3 py-2 rounded-md text-sm font-medium"
@@ -37,9 +48,10 @@ const Navbar = () => {
                 >
                   Favorites
                 </Link>
-              </div>
+              </>
             )}
           </div>
+        </div>  
 
           <div className="flex items-center">
             {isAuthenticated ? (
