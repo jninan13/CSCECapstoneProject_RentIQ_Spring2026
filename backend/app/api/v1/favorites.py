@@ -115,6 +115,7 @@ async def remove_favorite(
     
     Only allows users to remove their own favorites.
     """
+
     favorite = db.query(Favorite).filter(
         and_(
             Favorite.property_id == property_id,

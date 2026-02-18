@@ -49,7 +49,7 @@ test_app/
 ### 1. Clone and Setup Environment
 
 ```bash
-cd test_app
+cd test_app # name of the repo
 cp .env.example .env
 # Edit .env with your configuration
 ```
