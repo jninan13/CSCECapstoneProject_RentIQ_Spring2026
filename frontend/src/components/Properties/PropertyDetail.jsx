@@ -1,7 +1,7 @@
 /**
  * Detailed property view page.
  */
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { propertiesAPI, favoritesAPI } from '../../services/api';
 
@@ -13,11 +13,17 @@ const PropertyDetail = () => {
   const [error, setError] = useState('');
   const [isFavorited, setIsFavorited] = useState(false);
 
-  useEffect(() => {
-    loadProperty();
-  }, [id]);
+  const [analysis, setAnalysis] = useState(null);
+  const [analysisLoading, setAnalysisLoading] = useState(true);
+  const [analysisUpdating, setAnalysisUpdating] = useState(false);
+  const [downPaymentPct, setDownPaymentPct] = useState(0.2);
+  const [vacancyRate, setVacancyRate] = useState(0.05);
+  const [interestRate, setInterestRate] = useState(0.06);
+  const debounceRef = useRef(null);
+  const lastPropertyIdRef = useRef(null);
 
-  const loadProperty = async () => {
+  useEffect(() => {
+    const loadProperty = async () => {
     try {
       const response = await propertiesAPI.getById(id);
       setProperty(response.data);
@@ -28,7 +34,61 @@ const PropertyDetail = () => {
     } finally {
       setLoading(false);
     }
-  };
+    };
+
+    loadProperty();
+  }, [id]);
+
+  const isInitialLoad = useRef(true);
+
+  useEffect(() => {
+    if (!property || !property.estimated_rent) {
+      setAnalysis(null);
+      setAnalysisLoading(false);
+      setAnalysisUpdating(false);
+      return;
+    }
+
+    if (lastPropertyIdRef.current !== property.id) {
+      lastPropertyIdRef.current = property.id;
+      isInitialLoad.current = true;
+    }
+
+    const loadAnalysis = async () => {
+      const isFirstLoad = isInitialLoad.current;
+      if (isFirstLoad) {
+        setAnalysisLoading(true);
+      } else {
+        setAnalysisUpdating(true);
+      }
+
+      try {
+        const response = await propertiesAPI.getAnalysis(property.id, {
+          down_payment_pct: downPaymentPct,
+          vacancy_rate: vacancyRate,
+          interest_rate_annual: interestRate,
+        });
+        setAnalysis(response.data);
+      } catch (err) {
+        console.error('Failed to load investment analysis:', err);
+        setAnalysis(null);
+      } finally {
+        setAnalysisLoading(false);
+        setAnalysisUpdating(false);
+        isInitialLoad.current = false;
+      }
+    };
+
+    if (isInitialLoad.current) {
+      loadAnalysis();
+    } else {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+      debounceRef.current = setTimeout(loadAnalysis, 400);
+      return () => {
+        if (debounceRef.current) clearTimeout(debounceRef.current);
+      };
+    }
+  }, [property, downPaymentPct, vacancyRate, interestRate]);
 
   const handleFavoriteClick = async () => {
     try {
@@ -197,43 +257,128 @@ const PropertyDetail = () => {
           {property.estimated_rent && (
             <div className="border-t border-gray-200 mt-6 pt-6">
               <h2 className="text-xl font-bold text-gray-900 mb-4">Investment Analysis</h2>
-              
-              <div className="bg-gray-50 p-4 rounded-lg">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <p className="text-sm text-gray-600">Monthly Rent Estimate</p>
-                    <p className="text-lg font-semibold">
-                      ${parseFloat(property.estimated_rent).toLocaleString()}
-                    </p>
-                  </div>
-                  
-                  <div>
-                    <p className="text-sm text-gray-600">Annual Income Estimate</p>
-                    <p className="text-lg font-semibold">
-                      ${(parseFloat(property.estimated_rent) * 12).toLocaleString()}
-                    </p>
-                  </div>
-                  
-                  <div>
-                    <p className="text-sm text-gray-600">Price-to-Rent Ratio</p>
-                    <p className="text-lg font-semibold">
-                      {(parseFloat(property.price) / parseFloat(property.estimated_rent)).toFixed(1)}
-                    </p>
-                  </div>
-                  
-                  <div>
-                    <p className="text-sm text-gray-600">Potential ROI (Year 1)</p>
-                    <p className="text-lg font-semibold">
-                      {((parseFloat(property.estimated_rent) * 12 / parseFloat(property.price)) * 100).toFixed(2)}%
-                    </p>
-                  </div>
+
+              {analysisLoading && (
+                <div className="text-sm text-gray-500 mb-4">Loading investment metrics…</div>
+              )}
+
+              {analysisUpdating && (
+                <div className="text-xs text-gray-500 mb-2 flex items-center gap-1">
+                  <span className="inline-block w-3 h-3 border-2 border-gray-400 border-t-transparent rounded-full animate-spin" />
+                  Updating…
                 </div>
-                
-                <p className="text-xs text-gray-500 mt-4">
-                  * These are estimates for informational purposes only. Actual returns may vary based on 
-                  market conditions, maintenance costs, vacancy rates, and other factors.
-                </p>
-              </div>
+              )}
+
+              {analysis && (
+                <>
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+                    <SummaryCard label="Cap Rate" value={analysis.metrics.cap_rate} format="percent" />
+                    <SummaryCard label="Cash-on-Cash ROI" value={analysis.metrics.cash_on_cash_roi} format="percent" />
+                    <SummaryCard
+                      label={`${analysis.metrics.assumptions.analysis_horizon_years}-Year ROI`}
+                      value={analysis.metrics.total_roi_horizon}
+                      format="percent"
+                    />
+                    <SummaryCard label="Deal Score" value={analysis.metrics.deal_score} format="score" />
+                  </div>
+
+                  <div className="bg-gray-50 p-4 rounded-lg mb-6">
+                    <h3 className="text-sm font-semibold text-gray-700 mb-3">Annual Cash Flow Breakdown</h3>
+                    <table className="w-full text-sm">
+                      <tbody>
+                        <CashRow label="Gross Rent" value={analysis.metrics.cash_flow.gross_rent_annual} />
+                        <CashRow label="Vacancy Loss" value={analysis.metrics.cash_flow.vacancy_loss_annual} negative />
+                        <CashRow
+                          label="Effective Gross Income"
+                          value={analysis.metrics.cash_flow.effective_gross_income_annual}
+                          strong
+                        />
+                        <CashRow
+                          label="Operating Expenses"
+                          value={analysis.metrics.cash_flow.operating_expenses_annual}
+                          negative
+                        />
+                        <CashRow
+                          label="Net Operating Income (NOI)"
+                          value={analysis.metrics.cash_flow.noi_annual}
+                          strong
+                        />
+                        <CashRow
+                          label="Debt Service"
+                          value={analysis.metrics.cash_flow.debt_service_annual}
+                          negative
+                        />
+                        <CashRow
+                          label="Annual Cash Flow"
+                          value={analysis.metrics.cash_flow.cash_flow_annual}
+                          strong
+                          highlight
+                        />
+                      </tbody>
+                    </table>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                      <h3 className="text-sm font-semibold text-gray-700 mb-3">Scenario Controls</h3>
+                      <SliderControl
+                        label="Down Payment %"
+                        value={downPaymentPct}
+                        min={0.1}
+                        max={0.5}
+                        step={0.05}
+                        onChange={setDownPaymentPct}
+                      />
+                      <SliderControl
+                        label="Vacancy Rate %"
+                        value={vacancyRate}
+                        min={0}
+                        max={0.15}
+                        step={0.01}
+                        onChange={setVacancyRate}
+                      />
+                      <SliderControl
+                        label="Interest Rate %"
+                        value={interestRate}
+                        min={0.03}
+                        max={0.09}
+                        step={0.005}
+                        onChange={setInterestRate}
+                      />
+                    </div>
+
+                    <div>
+                      <h3 className="text-sm font-semibold text-gray-700 mb-3">Key Assumptions</h3>
+                      <ul className="space-y-1 text-sm text-gray-700">
+                        <li>
+                          <span className="text-gray-500">Down payment: </span>
+                          {(parseFloat(analysis.metrics.assumptions.down_payment_pct) * 100).toFixed(1)}%
+                        </li>
+                        <li>
+                          <span className="text-gray-500">Interest rate: </span>
+                          {(parseFloat(analysis.metrics.assumptions.interest_rate_annual) * 100).toFixed(2)}%
+                        </li>
+                        <li>
+                          <span className="text-gray-500">Vacancy rate: </span>
+                          {(parseFloat(analysis.metrics.assumptions.vacancy_rate) * 100).toFixed(1)}%
+                        </li>
+                        <li>
+                          <span className="text-gray-500">Appreciation: </span>
+                          {(parseFloat(analysis.metrics.assumptions.appreciation_rate_annual) * 100).toFixed(1)}%
+                        </li>
+                        <li>
+                          <span className="text-gray-500">Analysis horizon: </span>
+                          {analysis.metrics.assumptions.analysis_horizon_years} years
+                        </li>
+                      </ul>
+                      <p className="text-xs text-gray-500 mt-3">
+                        These are estimates for informational purposes only. Actual performance depends on
+                        maintenance, market conditions, vacancy, and financing terms.
+                      </p>
+                    </div>
+                  </div>
+                </>
+              )}
             </div>
           )}
         </div>
@@ -243,3 +388,60 @@ const PropertyDetail = () => {
 };
 
 export default PropertyDetail;
+
+const SummaryCard = ({ label, value, format }) => {
+  if (value == null) return null;
+
+  let display = value;
+  if (format === 'percent') {
+    display = `${(value * 100).toFixed(1)}%`;
+  } else if (format === 'score') {
+    display = `${value.toFixed(0)}/100`;
+  }
+
+  return (
+    <div className="bg-gray-50 p-4 rounded-lg">
+      <p className="text-xs text-gray-600 mb-1">{label}</p>
+      <p className="text-xl font-semibold text-gray-900">{display}</p>
+    </div>
+  );
+};
+
+const CashRow = ({ label, value, negative, strong, highlight }) => {
+  const num = parseFloat(value);
+  const formatted = isNaN(num)
+    ? '—'
+    : `$${num.toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
+
+  return (
+    <tr className={highlight ? 'bg-green-50 font-semibold' : ''}>
+      <td className="py-1 pr-4 text-gray-600">{label}</td>
+      <td
+        className={`py-1 text-right ${
+          negative ? 'text-red-600' : strong ? 'text-gray-900 font-semibold' : ''
+        }`}
+      >
+        {negative ? '-' : ''}
+        {formatted}
+      </td>
+    </tr>
+  );
+};
+
+const SliderControl = ({ label, value, min, max, step, onChange }) => (
+  <div className="mb-3">
+    <div className="flex justify-between text-xs text-gray-600 mb-1">
+      <span>{label}</span>
+      <span>{(value * 100).toFixed(1)}%</span>
+    </div>
+    <input
+      type="range"
+      min={min}
+      max={max}
+      step={step}
+      value={value}
+      onChange={(e) => onChange(parseFloat(e.target.value))}
+      className="w-full accent-primary-600"
+    />
+  </div>
+);

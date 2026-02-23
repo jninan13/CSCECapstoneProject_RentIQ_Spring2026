@@ -31,6 +31,12 @@ class PropertyResponse(PropertyBase):
     id: int
     profitability_score: float
     estimated_rent: Optional[Decimal] = None
+    # Summary investment metrics (detailed view is exposed via /analysis endpoint)
+    cap_rate: float | None = None
+    gross_yield: float | None = None
+    net_yield: float | None = None
+    cash_on_cash_roi: float | None = None
+    deal_score: float | None = None
     created_at: datetime
     is_favorited: bool = False  # Set dynamically based on user
     

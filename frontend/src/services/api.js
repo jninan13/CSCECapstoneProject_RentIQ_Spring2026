@@ -53,6 +53,7 @@ export const authAPI = {
 export const propertiesAPI = {
   search: (params) => api.get('/properties', { params }),
   getById: (id) => api.get(`/properties/${id}`),
+  getAnalysis: (id, params) => api.get(`/properties/${id}/analysis`, { params }),
 };
 
 // User Profile API

@@ -80,12 +80,52 @@ const PropertyCard = ({ property, onFavoriteChange }) => {
           <p className="text-sm text-gray-600">Price</p>
         </div>
         
-        <div>
-          <p className={`text-2xl font-bold px-3 py-1 rounded-lg inline-block ${getScoreColor(property.profitability_score)}`}>
+        <div className="space-y-1 text-right">
+          <p
+            className={`text-2xl font-bold px-3 py-1 rounded-lg inline-block ${getScoreColor(
+              property.profitability_score
+            )}`}
+          >
             {property.profitability_score.toFixed(1)}
           </p>
-          <p className="text-sm text-gray-600">Score</p>
+          <p className="text-xs text-gray-600">Profitability Score</p>
         </div>
+      </div>
+
+      {/* Investment summary */}
+      <div className="flex flex-wrap gap-4 text-xs text-gray-700 mb-3">
+        {property.estimated_rent && (
+          <div>
+            <p className="text-gray-500">Est. Rent</p>
+            <p className="font-semibold">
+              ${parseFloat(property.estimated_rent).toLocaleString()}/mo
+            </p>
+          </div>
+        )}
+        {property.cap_rate != null && (
+          <div>
+            <p className="text-gray-500">Cap Rate</p>
+            <p className="font-semibold">
+              {(property.cap_rate * 100).toFixed(1)}%
+            </p>
+          </div>
+        )}
+        {property.cash_on_cash_roi != null && (
+          <div>
+            <p className="text-gray-500">Cash-on-Cash</p>
+            <p className="font-semibold">
+              {(property.cash_on_cash_roi * 100).toFixed(1)}%
+            </p>
+          </div>
+        )}
+        {property.deal_score != null && (
+          <div>
+            <p className="text-gray-500">Deal Score</p>
+            <p className="font-semibold">
+              {property.deal_score.toFixed(0)}/100
+            </p>
+          </div>
+        )}
       </div>
 
       <div className="flex space-x-6 text-sm text-gray-700">
@@ -111,17 +151,6 @@ const PropertyCard = ({ property, onFavoriteChange }) => {
         </div>
       </div>
 
-      <div className="mt-4 pt-4 border-t border-gray-200">
-        <p className="text-sm text-gray-600">
-          <span className="font-medium">{property.property_type}</span>
-          {property.year_built && ` • Built ${property.year_built}`}
-        </p>
-        {property.estimated_rent && (
-          <p className="text-sm text-gray-600 mt-1">
-            Est. Rent: ${parseFloat(property.estimated_rent).toLocaleString()}/mo
-          </p>
-        )}
-      </div>
     </div>
   );
 };
