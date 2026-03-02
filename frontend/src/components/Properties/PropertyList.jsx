@@ -10,6 +10,7 @@ const PropertyList = () => {
   const [properties, setProperties] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [sortOption, setSortOption] = useState('');
 
   useEffect(() => {
     // Load properties on mount
@@ -30,6 +31,26 @@ const PropertyList = () => {
       setLoading(false);
     }
   };
+
+  const sortedProperties = [...properties].sort((a, b) => {
+    if (sortOption === 'priceLowHigh') {
+      return parseFloat(a.price) - parseFloat(b.price);
+    }
+
+    if (sortOption === 'priceHighLow') {
+      return parseFloat(b.price) - parseFloat(a.price);
+    }
+
+    if (sortOption === 'scoreHighLow') {
+      return b.profitability_score - a.profitability_score;
+    }
+
+    if (sortOption === 'sqftHighLow') {
+      return b.size_sqft - a.size_sqft;
+    }
+
+    return 0;
+  });
 
   return (
     <div className="min-h-screen bg-gray-50 py-8">
@@ -58,10 +79,28 @@ const PropertyList = () => {
         ) : (
           <>
             <div className="mb-4 text-gray-600">
-              Found {properties.length} properties
+              <div className="flex justify-between items-center mb-6">
+                <div className="text-gray-600">
+                  Found {properties.length} properties
+                </div>
+
+                <div>
+                  <select
+                    value={sortOption}
+                    onChange={(e) => setSortOption(e.target.value)}
+                    className="input-field w-56"
+                  >
+                    <option value="">Sort By</option>
+                    <option value="priceLowHigh">Price (Low to High)</option>
+                    <option value="priceHighLow">Price (High to Low)</option>
+                    <option value="scoreHighLow">Profitability Score</option>
+                    <option value="sqftHighLow">Square Footage</option>
+                  </select>
+                </div>
+              </div>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {properties.map((property) => (
+              {sortedProperties.map((property) => (
                 <PropertyCard
                   key={property.id}
                   property={property}
