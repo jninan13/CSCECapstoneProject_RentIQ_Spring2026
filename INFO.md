@@ -4,11 +4,11 @@ A full-stack web application for beginner investors to identify profitable real 
 
 ## Tech Stack
 
-- **Frontend**: React.js with Tailwind CSS
+- **Frontend**: React.js with Vite and Tailwind CSS
 - **Backend**: FastAPI (Python)
 - **Database**: PostgreSQL
 - **Cache**: Redis
-- **Hosting**: AWS Lambda (serverless)
+- **Containerization**: Docker & Docker Compose
 
 ## Features
 
@@ -21,8 +21,9 @@ A full-stack web application for beginner investors to identify profitable real 
 ## Project Structure
 
 ```
-test_app/
+CSCECapstoneProject_RentIQ_Spring2026/
 ├── backend/           # FastAPI application
+│   ├── Dockerfile
 │   ├── app/
 │   │   ├── api/      # API endpoints
 │   │   ├── core/     # Business logic (security, scoring)
@@ -30,7 +31,8 @@ test_app/
 │   │   ├── schemas/  # Pydantic schemas
 │   │   └── utils/    # Utilities (cache, etc.)
 │   └── tests/        # Backend tests
-├── frontend/         # React application
+├── frontend/         # React application (Vite)
+│   ├── Dockerfile
 │   └── src/
 │       ├── components/
 │       ├── context/
@@ -42,133 +44,47 @@ test_app/
 
 ### Prerequisites
 
-- Python 3.10+
-- Node.js 18+
 - Docker & Docker Compose
+- Git
 
 ### 1. Clone and Setup Environment
 
 ```bash
-cd test_app # name of the repo
-cp .env.example .env
-# Edit .env with your configuration
+git clone <repository-url>
+cd CSCECapstoneProject_RentIQ_Spring2026
+# Copy the environment template if one exists
+# cp .env.example .env
 ```
 
-### 2. Start Database Services
+### 2. Start the Application
+
+The entire application stack (Frontend, Backend, PostgreSQL, and Redis) is containerized and can be started with a single command:
 
 ```bash
-docker-compose up -d
+docker compose up --build -d
 ```
 
-This starts PostgreSQL and Redis containers.
+### 3. Access the Application
 
-### 3. Backend Setup
+- **Frontend**: `http://localhost:5173`
+- **Backend API API**: `http://localhost:8000`
+- **API Documentation**: `http://localhost:8000/docs`
+
+### 4. Seed Sample Data (Optional)
+
+To add sample properties to your database, you can run the seed script inside the backend container:
 
 ```bash
-cd backend
-
-# Create virtual environment
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-
-# Install dependencies
-pip install -r requirements.txt
-
-# Run the server
-uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+docker exec -it rentiq_backend python seed_data.py
 ```
-
-The API will be available at `http://localhost:8000`
-
-API documentation: `http://localhost:8000/docs`
-
-### 4. Frontend Setup
-
-```bash
-cd frontend
-
-# Install dependencies
-npm install
-
-# Start development server
-npm run dev
-```
-
-The frontend will be available at `http://localhost:3000`
-
-### 5. Seed Sample Data (Optional)
-
-Create a Python script to add sample properties:
-
-```python
-# backend/seed_data.py
-from app.database import SessionLocal
-from app.models import Property
-from app.core.scoring import calculate_profitability_score, estimate_monthly_rent
-from decimal import Decimal
-
-db = SessionLocal()
-
-properties_data = [
-    {
-        "address": "123 Main St",
-        "city": "Los Angeles",
-        "state": "CA",
-        "zip_code": "90210",
-        "price": Decimal("450000"),
-        "size_sqft": 1800,
-        "bedrooms": 3,
-        "bathrooms": 2.0,
-        "property_type": "single_family",
-        "year_built": 2015,
-        "lat": 34.0901,
-        "lng": -118.4065
-    },
-    # Add more properties...
-]
-
-for prop_data in properties_data:
-    estimated_rent = estimate_monthly_rent(
-        prop_data["price"],
-        prop_data["size_sqft"],
-        prop_data["bedrooms"]
-    )
-    
-    score = calculate_profitability_score(
-        price=prop_data["price"],
-        size_sqft=prop_data["size_sqft"],
-        estimated_rent=estimated_rent,
-        year_built=prop_data.get("year_built"),
-        property_type=prop_data["property_type"]
-    )
-    
-    property_obj = Property(
-        **prop_data,
-        profitability_score=score,
-        estimated_rent=estimated_rent
-    )
-    db.add(property_obj)
-
-db.commit()
-print("Sample data created!")
-```
-
-Run: `python seed_data.py`
+*(Make sure `seed_data.py` exists in the backend root)*
 
 ## Running Tests
 
-### Backend Tests
+To run tests, you can execute pytest inside the backend container:
 
 ```bash
-cd backend
-pytest tests/ -v
-```
-
-### Frontend Tests (if implemented)
-
-```bash
-cd frontend
-npm test
+docker exec -it rentiq_backend pytest tests/ -v
 ```
 
 ## API Endpoints
@@ -201,42 +117,6 @@ Properties are scored 0-100 based on:
 3. **Property Age (15%)**: Newer properties score higher
 4. **Property Type (15%)**: Single-family homes score highest
 
-## Deployment to AWS Lambda
-
-### Using Mangum
-
-The backend is Lambda-ready via the Mangum adapter:
-
-```python
-# app/main.py
-from mangum import Mangum
-handler = Mangum(app)
-```
-
-### Deployment Steps
-
-1. **Install dependencies to a package directory**:
-   ```bash
-   pip install -r requirements.txt -t package/
-   ```
-
-2. **Create deployment package**:
-   ```bash
-   cd package
-   zip -r ../deployment.zip .
-   cd ../app
-   zip -g ../deployment.zip -r .
-   ```
-
-3. **Deploy to Lambda**:
-   - Upload `deployment.zip` to AWS Lambda
-   - Set handler to `app.main.handler`
-   - Configure environment variables
-   - Set up API Gateway
-
-4. **Database**: Use AWS RDS for PostgreSQL
-5. **Cache**: Use AWS ElastiCache for Redis
-
 ## Security Considerations
 
 - **Password Hashing**: bcrypt with salt rounds
@@ -257,23 +137,31 @@ handler = Mangum(app)
 
 ## Troubleshooting
 
-### Database Connection Issues
+### Check Container Status
 ```bash
-# Check if containers are running
-docker-compose ps
-
-# View logs
-docker-compose logs postgres
+docker compose ps
 ```
 
-### Redis Connection Issues
+### View Logs
 ```bash
-# Test Redis connection
-docker-compose exec redis redis-cli ping
+# View all logs
+docker compose logs -f
+
+# View logs for a specific service
+docker compose logs -f backend
+docker compose logs -f frontend
+docker compose logs -f postgres
+```
+
+### Database or Redis Connection Issues
+If the backend fails to connect to the database or Redis, ensure that the respective containers are healthy:
+```bash
+docker compose ps
+# Check if postgres and redis show as (healthy)
 ```
 
 ### Port Conflicts
-If ports 5432, 6379, 8000, or 3000 are in use, modify the ports in `docker-compose.yml` or your run commands.
+If ports 5432, 6379, 8000, or 5173 are in use on your host machine, modify the port mappings in `docker-compose.yml` or stop the conflicting services before running `docker compose up`.
 
 ## License
 
