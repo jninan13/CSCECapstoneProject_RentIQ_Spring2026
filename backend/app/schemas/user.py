@@ -30,6 +30,8 @@ class UserResponse(UserBase):
 
 
 class UserProfileBase(BaseModel):
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
     date_of_birth: Optional[datetime] = None
     address: Optional[str] = None
     phone: Optional[str] = None
@@ -40,12 +42,13 @@ class UserProfileCreate(UserProfileBase):
 
 
 class UserProfileUpdate(UserProfileBase):
-    pass
+    email: Optional[EmailStr] = None
 
 
 class UserProfileResponse(UserProfileBase):
     id: int
     user_id: int
+    email: Optional[EmailStr] = None
     created_at: datetime
     
     class Config:

@@ -53,34 +53,34 @@ const PropertyList = () => {
   });
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-8 transition-colors duration-300">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <h1 className="text-3xl font-bold text-gray-900 mb-8">
+        <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-8">
           Find Your Investment Property
         </h1>
 
         <SearchFilters onSearch={handleSearch} />
 
         {error && (
-          <div className="bg-red-50 border border-red-400 text-red-700 px-4 py-3 rounded mb-6">
+          <div className="bg-red-50 dark:bg-red-900/30 border border-red-400 dark:border-red-800 text-red-700 dark:text-red-400 px-4 py-3 rounded mb-6">
             {error}
           </div>
         )}
 
         {loading ? (
           <div className="text-center py-12">
-            <div className="text-xl text-gray-600">Loading properties...</div>
+            <div className="text-xl text-gray-600 dark:text-gray-400">Loading properties...</div>
           </div>
         ) : properties.length === 0 ? (
           <div className="text-center py-12">
-            <p className="text-xl text-gray-600">No properties found</p>
-            <p className="text-gray-500 mt-2">Try adjusting your filters</p>
+            <p className="text-xl text-gray-600 dark:text-gray-400">No properties found</p>
+            <p className="text-gray-500 dark:text-gray-500 mt-2">Try adjusting your filters</p>
           </div>
         ) : (
           <>
-            <div className="mb-4 text-gray-600">
+            <div className="mb-4 text-gray-600 dark:text-gray-400">
               <div className="flex justify-between items-center mb-6">
-                <div className="text-gray-600">
+                <div className="text-gray-600 dark:text-gray-400">
                   Found {properties.length} properties
                 </div>
 
@@ -88,7 +88,7 @@ const PropertyList = () => {
                   <select
                     value={sortOption}
                     onChange={(e) => setSortOption(e.target.value)}
-                    className="input-field w-56"
+                    className="input-field w-56 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
                   >
                     <option value="">Sort By</option>
                     <option value="priceLowHigh">Price (Low to High)</option>

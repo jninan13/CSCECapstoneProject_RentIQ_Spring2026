@@ -27,12 +27,12 @@ const SearchFilters = ({ onSearch }) => {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    
+
     // Remove empty values
     const cleanedFilters = Object.fromEntries(
       Object.entries(filters).filter(([_, v]) => v !== '')
     );
-    
+
     onSearch(cleanedFilters);
   };
 
@@ -55,13 +55,13 @@ const SearchFilters = ({ onSearch }) => {
 
   return (
     <div className="card mb-6">
-      <h2 className="text-xl font-bold text-gray-900 mb-4">Search Filters</h2>
-      
+      <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-4">Search Filters</h2>
+
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {/* Zip Code */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
               Zip Code
             </label>
             <input
@@ -76,7 +76,7 @@ const SearchFilters = ({ onSearch }) => {
 
           {/* Min Price */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
               Min Price
             </label>
             <input
@@ -91,7 +91,7 @@ const SearchFilters = ({ onSearch }) => {
 
           {/* Max Price */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
               Max Price
             </label>
             <input
@@ -106,7 +106,7 @@ const SearchFilters = ({ onSearch }) => {
 
           {/* Min Size */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
               Min Size (sqft)
             </label>
             <input
@@ -121,7 +121,7 @@ const SearchFilters = ({ onSearch }) => {
 
           {/* Max Size */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
               Max Size (sqft)
             </label>
             <input
@@ -136,7 +136,7 @@ const SearchFilters = ({ onSearch }) => {
 
           {/* Bedrooms */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
               Bedrooms
             </label>
             <select
@@ -156,7 +156,7 @@ const SearchFilters = ({ onSearch }) => {
 
           {/* Bathrooms */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
               Bathrooms
             </label>
             <select
@@ -175,7 +175,7 @@ const SearchFilters = ({ onSearch }) => {
 
           {/* Property Type */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
               Property Type
             </label>
             <select
@@ -194,7 +194,7 @@ const SearchFilters = ({ onSearch }) => {
 
           {/* Radius */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
               Radius (miles)
             </label>
             <input
@@ -211,7 +211,7 @@ const SearchFilters = ({ onSearch }) => {
 
           {/* Min Score */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
               Min Score
             </label>
             <input

@@ -29,6 +29,8 @@ class UserProfile(Base):
     
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), unique=True, nullable=False)
+    first_name = Column(String, nullable=True)
+    last_name = Column(String, nullable=True)
     date_of_birth = Column(DateTime, nullable=True)
     address = Column(String, nullable=True)
     phone = Column(String, nullable=True)
