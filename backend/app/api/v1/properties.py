@@ -19,7 +19,7 @@ from ...schemas import (
 )
 from ...models import Property, Favorite, User
 from ...utils import get_cached, set_cached, generate_cache_key
-from ..deps import get_current_user
+from ..deps import get_current_user_optional
 from ...core.investment import analyze_investment, InvestmentAssumptions
 
 router = APIRouter(prefix="/properties", tags=["properties"])
@@ -58,7 +58,7 @@ async def search_properties(
     min_score: Optional[float] = Query(None, ge=0, le=100),
     skip: int = Query(0, ge=0),
     limit: int = Query(20, ge=1, le=100),
-    current_user: Optional[User] = Depends(get_current_user),
+    current_user: Optional[User] = Depends(get_current_user_optional),
     db: Session = Depends(get_db)
 ):
     """
@@ -179,7 +179,7 @@ async def search_properties(
 @router.get("/{property_id}", response_model=PropertyResponse)
 async def get_property(
     property_id: int,
-    current_user: Optional[User] = Depends(get_current_user),
+    current_user: Optional[User] = Depends(get_current_user_optional),
     db: Session = Depends(get_db)
 ):
     """
