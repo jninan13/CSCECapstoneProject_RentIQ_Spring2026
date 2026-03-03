@@ -24,16 +24,16 @@ const PropertyDetail = () => {
 
   useEffect(() => {
     const loadProperty = async () => {
-    try {
-      const response = await propertiesAPI.getById(id);
-      setProperty(response.data);
-      setIsFavorited(response.data.is_favorited);
-    } catch (err) {
-      setError('Failed to load property details');
-      console.error('Load error:', err);
-    } finally {
-      setLoading(false);
-    }
+      try {
+        const response = await propertiesAPI.getById(id);
+        setProperty(response.data);
+        setIsFavorited(response.data.is_favorited);
+      } catch (err) {
+        setError('Failed to load property details');
+        console.error('Load error:', err);
+      } finally {
+        setLoading(false);
+      }
     };
 
     loadProperty();
@@ -105,17 +105,17 @@ const PropertyDetail = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-xl text-gray-600">Loading...</div>
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 transition-colors duration-300">
+        <div className="text-xl text-gray-600 dark:text-gray-400">Loading...</div>
       </div>
     );
   }
 
   if (error || !property) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 transition-colors duration-300">
         <div className="text-center">
-          <p className="text-xl text-red-600">{error || 'Property not found'}</p>
+          <p className="text-xl text-red-600 dark:text-red-400">{error || 'Property not found'}</p>
           <button onClick={() => navigate('/properties')} className="btn-primary mt-4">
             Back to Properties
           </button>
@@ -125,21 +125,21 @@ const PropertyDetail = () => {
   }
 
   const getScoreColor = (score) => {
-    if (score >= 80) return 'bg-green-100 text-green-800';
-    if (score >= 60) return 'bg-yellow-100 text-yellow-800';
-    return 'bg-red-100 text-red-800';
+    if (score >= 80) return 'bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300';
+    if (score >= 60) return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/40 dark:text-yellow-300';
+    return 'bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300';
   };
 
   const streetViewUrl = property?.id
-  ? `http://localhost:8000/api/properties/${property.id}/streetview.jpg`
-  : '';
+    ? `http://localhost:8000/api/properties/${property.id}/streetview.jpg`
+    : '';
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-8 transition-colors duration-300">
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
         <button
           onClick={() => navigate('/properties')}
-          className="mb-6 text-primary-600 hover:text-primary-700 flex items-center"
+          className="mb-6 text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300 flex items-center"
         >
           <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
@@ -148,7 +148,7 @@ const PropertyDetail = () => {
         </button>
 
         <div className="card">
-        {/* Property Image */}
+          {/* Property Image */}
           <div className="mb-6 overflow-hidden rounded-xl">
             <img
               src={streetViewUrl}
@@ -162,7 +162,7 @@ const PropertyDetail = () => {
               }}
             />
             <div
-              className="h-64 w-full items-center justify-center bg-gray-100 text-gray-500"
+              className="h-64 w-full items-center justify-center bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400"
               style={{ display: 'none' }}
             >
               No Street View available
@@ -172,18 +172,18 @@ const PropertyDetail = () => {
           {/* Header */}
           <div className="flex justify-between items-start mb-6">
             <div>
-              <h1 className="text-3xl font-bold text-gray-900 mb-2">{property.address}</h1>
-              <p className="text-lg text-gray-600">
+              <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">{property.address}</h1>
+              <p className="text-lg text-gray-600 dark:text-gray-400">
                 {property.city}, {property.state} {property.zip_code}
               </p>
             </div>
-            
+
             <button
               onClick={handleFavoriteClick}
-              className="p-3 rounded-full hover:bg-gray-100 transition-colors"
+              className="p-3 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
             >
               <svg
-                className={`w-8 h-8 ${isFavorited ? 'fill-red-500 text-red-500' : 'fill-none text-gray-400'}`}
+                className={`w-8 h-8 ${isFavorited ? 'fill-red-500 text-red-500' : 'fill-none text-gray-400 dark:text-gray-500'}`}
                 stroke="currentColor"
                 viewBox="0 0 24 24"
               >
@@ -199,22 +199,22 @@ const PropertyDetail = () => {
 
           {/* Key Metrics */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-            <div className="bg-primary-50 p-4 rounded-lg">
-              <p className="text-sm text-gray-600 mb-1">Price</p>
-              <p className="text-3xl font-bold text-primary-600">
+            <div className="bg-primary-50 dark:bg-primary-900/20 p-4 rounded-lg">
+              <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">Price</p>
+              <p className="text-3xl font-bold text-primary-600 dark:text-primary-400">
                 ${parseFloat(property.price).toLocaleString()}
               </p>
             </div>
-            
+
             <div className={`p-4 rounded-lg ${getScoreColor(property.profitability_score)}`}>
               <p className="text-sm mb-1">Profitability Score</p>
               <p className="text-3xl font-bold">{property.profitability_score.toFixed(1)}</p>
             </div>
-            
+
             {property.estimated_rent && (
-              <div className="bg-green-50 p-4 rounded-lg">
-                <p className="text-sm text-gray-600 mb-1">Est. Monthly Rent</p>
-                <p className="text-3xl font-bold text-green-600">
+              <div className="bg-green-50 dark:bg-green-900/20 p-4 rounded-lg">
+                <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">Est. Monthly Rent</p>
+                <p className="text-3xl font-bold text-green-600 dark:text-green-400">
                   ${parseFloat(property.estimated_rent).toLocaleString()}
                 </p>
               </div>
@@ -222,40 +222,40 @@ const PropertyDetail = () => {
           </div>
 
           {/* Property Details */}
-          <div className="border-t border-gray-200 pt-6">
-            <h2 className="text-xl font-bold text-gray-900 mb-4">Property Details</h2>
-            
+          <div className="border-t border-gray-200 dark:border-gray-700 pt-6">
+            <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-4">Property Details</h2>
+
             <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
               <div>
-                <p className="text-sm text-gray-600">Square Footage</p>
-                <p className="text-lg font-semibold">{property.size_sqft.toLocaleString()} sqft</p>
+                <p className="text-sm text-gray-600 dark:text-gray-400">Square Footage</p>
+                <p className="text-lg font-semibold text-gray-900 dark:text-white">{property.size_sqft.toLocaleString()} sqft</p>
               </div>
-              
+
               <div>
-                <p className="text-sm text-gray-600">Bedrooms</p>
-                <p className="text-lg font-semibold">{property.bedrooms}</p>
+                <p className="text-sm text-gray-600 dark:text-gray-400">Bedrooms</p>
+                <p className="text-lg font-semibold text-gray-900 dark:text-white">{property.bedrooms}</p>
               </div>
-              
+
               <div>
-                <p className="text-sm text-gray-600">Bathrooms</p>
-                <p className="text-lg font-semibold">{property.bathrooms}</p>
+                <p className="text-sm text-gray-600 dark:text-gray-400">Bathrooms</p>
+                <p className="text-lg font-semibold text-gray-900 dark:text-white">{property.bathrooms}</p>
               </div>
-              
+
               <div>
-                <p className="text-sm text-gray-600">Property Type</p>
-                <p className="text-lg font-semibold capitalize">{property.property_type.replace('_', ' ')}</p>
+                <p className="text-sm text-gray-600 dark:text-gray-400">Property Type</p>
+                <p className="text-lg font-semibold capitalize text-gray-900 dark:text-white">{property.property_type.replace('_', ' ')}</p>
               </div>
-              
+
               {property.year_built && (
                 <div>
-                  <p className="text-sm text-gray-600">Year Built</p>
-                  <p className="text-lg font-semibold">{property.year_built}</p>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">Year Built</p>
+                  <p className="text-lg font-semibold text-gray-900 dark:text-white">{property.year_built}</p>
                 </div>
               )}
-              
+
               <div>
-                <p className="text-sm text-gray-600">Price/sqft</p>
-                <p className="text-lg font-semibold">
+                <p className="text-sm text-gray-600 dark:text-gray-400">Price/sqft</p>
+                <p className="text-lg font-semibold text-gray-900 dark:text-white">
                   ${(parseFloat(property.price) / property.size_sqft).toFixed(2)}
                 </p>
               </div>
@@ -264,16 +264,16 @@ const PropertyDetail = () => {
 
           {/* Investment Analysis */}
           {property.estimated_rent && (
-            <div className="border-t border-gray-200 mt-6 pt-6">
-              <h2 className="text-xl font-bold text-gray-900 mb-4">Investment Analysis</h2>
+            <div className="border-t border-gray-200 dark:border-gray-700 mt-6 pt-6">
+              <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-4">Investment Analysis</h2>
 
               {analysisLoading && (
-                <div className="text-sm text-gray-500 mb-4">Loading investment metrics…</div>
+                <div className="text-sm text-gray-500 dark:text-gray-400 mb-4">Loading investment metrics…</div>
               )}
 
               {analysisUpdating && (
-                <div className="text-xs text-gray-500 mb-2 flex items-center gap-1">
-                  <span className="inline-block w-3 h-3 border-2 border-gray-400 border-t-transparent rounded-full animate-spin" />
+                <div className="text-xs text-gray-500 dark:text-gray-400 mb-2 flex items-center gap-1">
+                  <span className="inline-block w-3 h-3 border-2 border-gray-400 dark:border-gray-500 border-t-transparent rounded-full animate-spin" />
                   Updating…
                 </div>
               )}
@@ -291,8 +291,8 @@ const PropertyDetail = () => {
                     <SummaryCard label="Deal Score" value={analysis.metrics.deal_score} format="score" />
                   </div>
 
-                  <div className="bg-gray-50 p-4 rounded-lg mb-6">
-                    <h3 className="text-sm font-semibold text-gray-700 mb-3">Annual Cash Flow Breakdown</h3>
+                  <div className="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg mb-6">
+                    <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">Annual Cash Flow Breakdown</h3>
                     <table className="w-full text-sm">
                       <tbody>
                         <CashRow label="Gross Rent" value={analysis.metrics.cash_flow.gross_rent_annual} />
@@ -329,7 +329,7 @@ const PropertyDetail = () => {
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div>
-                      <h3 className="text-sm font-semibold text-gray-700 mb-3">Scenario Controls</h3>
+                      <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">Scenario Controls</h3>
                       <SliderControl
                         label="Down Payment %"
                         value={downPaymentPct}
@@ -357,30 +357,30 @@ const PropertyDetail = () => {
                     </div>
 
                     <div>
-                      <h3 className="text-sm font-semibold text-gray-700 mb-3">Key Assumptions</h3>
-                      <ul className="space-y-1 text-sm text-gray-700">
+                      <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">Key Assumptions</h3>
+                      <ul className="space-y-1 text-sm text-gray-700 dark:text-gray-300">
                         <li>
-                          <span className="text-gray-500">Down payment: </span>
+                          <span className="text-gray-500 dark:text-gray-400">Down payment: </span>
                           {(parseFloat(analysis.metrics.assumptions.down_payment_pct) * 100).toFixed(1)}%
                         </li>
                         <li>
-                          <span className="text-gray-500">Interest rate: </span>
+                          <span className="text-gray-500 dark:text-gray-400">Interest rate: </span>
                           {(parseFloat(analysis.metrics.assumptions.interest_rate_annual) * 100).toFixed(2)}%
                         </li>
                         <li>
-                          <span className="text-gray-500">Vacancy rate: </span>
+                          <span className="text-gray-500 dark:text-gray-400">Vacancy rate: </span>
                           {(parseFloat(analysis.metrics.assumptions.vacancy_rate) * 100).toFixed(1)}%
                         </li>
                         <li>
-                          <span className="text-gray-500">Appreciation: </span>
+                          <span className="text-gray-500 dark:text-gray-400">Appreciation: </span>
                           {(parseFloat(analysis.metrics.assumptions.appreciation_rate_annual) * 100).toFixed(1)}%
                         </li>
                         <li>
-                          <span className="text-gray-500">Analysis horizon: </span>
+                          <span className="text-gray-500 dark:text-gray-400">Analysis horizon: </span>
                           {analysis.metrics.assumptions.analysis_horizon_years} years
                         </li>
                       </ul>
-                      <p className="text-xs text-gray-500 mt-3">
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-3">
                         These are estimates for informational purposes only. Actual performance depends on
                         maintenance, market conditions, vacancy, and financing terms.
                       </p>
@@ -409,9 +409,9 @@ const SummaryCard = ({ label, value, format }) => {
   }
 
   return (
-    <div className="bg-gray-50 p-4 rounded-lg">
-      <p className="text-xs text-gray-600 mb-1">{label}</p>
-      <p className="text-xl font-semibold text-gray-900">{display}</p>
+    <div className="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg">
+      <p className="text-xs text-gray-600 dark:text-gray-400 mb-1">{label}</p>
+      <p className="text-xl font-semibold text-gray-900 dark:text-white">{display}</p>
     </div>
   );
 };
@@ -423,12 +423,11 @@ const CashRow = ({ label, value, negative, strong, highlight }) => {
     : `$${num.toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
 
   return (
-    <tr className={highlight ? 'bg-green-50 font-semibold' : ''}>
-      <td className="py-1 pr-4 text-gray-600">{label}</td>
+    <tr className={highlight ? 'bg-green-50 dark:bg-green-900/20 font-semibold text-gray-900 dark:text-white' : ''}>
+      <td className="py-1 pr-4 text-gray-600 dark:text-gray-400">{label}</td>
       <td
-        className={`py-1 text-right ${
-          negative ? 'text-red-600' : strong ? 'text-gray-900 font-semibold' : ''
-        }`}
+        className={`py-1 text-right ${negative ? 'text-red-600 dark:text-red-400' : strong ? 'text-gray-900 dark:text-white font-semibold' : 'text-gray-800 dark:text-gray-300'
+          }`}
       >
         {negative ? '-' : ''}
         {formatted}
@@ -439,7 +438,7 @@ const CashRow = ({ label, value, negative, strong, highlight }) => {
 
 const SliderControl = ({ label, value, min, max, step, onChange }) => (
   <div className="mb-3">
-    <div className="flex justify-between text-xs text-gray-600 mb-1">
+    <div className="flex justify-between text-xs text-gray-600 dark:text-gray-400 mb-1">
       <span>{label}</span>
       <span>{(value * 100).toFixed(1)}%</span>
     </div>
@@ -450,7 +449,7 @@ const SliderControl = ({ label, value, min, max, step, onChange }) => (
       step={step}
       value={value}
       onChange={(e) => onChange(parseFloat(e.target.value))}
-      className="w-full accent-primary-600"
+      className="w-full accent-primary-600 dark:accent-primary-500"
     />
   </div>
 );

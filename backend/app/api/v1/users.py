@@ -30,6 +30,9 @@ async def get_profile(
         db.add(profile)
         db.commit()
         db.refresh(profile)
+        
+    # Inject email from User model
+    profile.email = current_user.email
     
     return profile
 
@@ -54,10 +57,29 @@ async def update_profile(
     
     # Update fields
     update_data = profile_data.model_dump(exclude_unset=True)
+    
+    # Handle email update separately on the User model
+    if 'email' in update_data:
+        new_email = update_data.pop('email')
+        if new_email and new_email != current_user.email:
+            # Check if email is already taken
+            existing_user = db.query(User).filter(User.email == new_email).first()
+            if existing_user:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Email already registered"
+                )
+            current_user.email = new_email
+            db.add(current_user)
+
+    # Update UserProfile fields
     for field, value in update_data.items():
         setattr(profile, field, value)
     
     db.commit()
     db.refresh(profile)
+    
+    # Inject email back for the response
+    profile.email = current_user.email
     
     return profile

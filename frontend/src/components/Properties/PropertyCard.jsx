@@ -34,9 +34,9 @@ const PropertyCard = ({ property, onFavoriteChange }) => {
   };
 
   const getScoreColor = (score) => {
-    if (score >= 80) return 'text-green-600 bg-green-100';
-    if (score >= 60) return 'text-yellow-600 bg-yellow-100';
-    return 'text-red-600 bg-red-100';
+    if (score >= 80) return 'text-green-600 bg-green-100 dark:text-green-400 dark:bg-green-900/40';
+    if (score >= 60) return 'text-yellow-600 bg-yellow-100 dark:text-yellow-400 dark:bg-yellow-900/40';
+    return 'text-red-600 bg-red-100 dark:text-red-400 dark:bg-red-900/40';
   };
 
   return (
@@ -46,19 +46,19 @@ const PropertyCard = ({ property, onFavoriteChange }) => {
     >
       <div className="flex justify-between items-start mb-4">
         <div className="flex-1">
-          <h3 className="text-lg font-semibold text-gray-900">{property.address}</h3>
-          <p className="text-sm text-gray-600">
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-white">{property.address}</h3>
+          <p className="text-sm text-gray-600 dark:text-gray-400">
             {property.city}, {property.state} {property.zip_code}
           </p>
         </div>
-        
+
         <button
           onClick={handleFavoriteClick}
           disabled={loading}
-          className="ml-4 p-2 rounded-full hover:bg-gray-100 transition-colors"
+          className="ml-4 p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
         >
           <svg
-            className={`w-6 h-6 ${isFavorited ? 'fill-red-500 text-red-500' : 'fill-none text-gray-400'}`}
+            className={`w-6 h-6 ${isFavorited ? 'fill-red-500 text-red-500' : 'fill-none text-gray-400 dark:text-gray-500'}`}
             stroke="currentColor"
             viewBox="0 0 24 24"
           >
@@ -74,12 +74,12 @@ const PropertyCard = ({ property, onFavoriteChange }) => {
 
       <div className="grid grid-cols-2 gap-4 mb-4">
         <div>
-          <p className="text-2xl font-bold text-primary-600">
+          <p className="text-2xl font-bold text-primary-600 dark:text-primary-400">
             ${parseFloat(property.price).toLocaleString()}
           </p>
-          <p className="text-sm text-gray-600">Price</p>
+          <p className="text-sm text-gray-600 dark:text-gray-400">Price</p>
         </div>
-        
+
         <div className="space-y-1 text-right">
           <p
             className={`text-2xl font-bold px-3 py-1 rounded-lg inline-block ${getScoreColor(
@@ -88,61 +88,61 @@ const PropertyCard = ({ property, onFavoriteChange }) => {
           >
             {property.profitability_score.toFixed(1)}
           </p>
-          <p className="text-xs text-gray-600">Profitability Score</p>
+          <p className="text-xs text-gray-600 dark:text-gray-400">Profitability Score</p>
         </div>
       </div>
 
       {/* Investment summary */}
-      <div className="flex flex-wrap gap-4 text-xs text-gray-700 mb-3">
+      <div className="flex flex-wrap gap-4 text-xs text-gray-700 dark:text-gray-300 mb-3">
         {property.estimated_rent && (
           <div>
-            <p className="text-gray-500">Est. Rent</p>
-            <p className="font-semibold">
+            <p className="text-gray-500 dark:text-gray-400">Est. Rent</p>
+            <p className="font-semibold text-gray-900 dark:text-white">
               ${parseFloat(property.estimated_rent).toLocaleString()}/mo
             </p>
           </div>
         )}
         {property.cap_rate != null && (
           <div>
-            <p className="text-gray-500">Cap Rate</p>
-            <p className="font-semibold">
+            <p className="text-gray-500 dark:text-gray-400">Cap Rate</p>
+            <p className="font-semibold text-gray-900 dark:text-white">
               {(property.cap_rate * 100).toFixed(1)}%
             </p>
           </div>
         )}
         {property.cash_on_cash_roi != null && (
           <div>
-            <p className="text-gray-500">Cash-on-Cash</p>
-            <p className="font-semibold">
+            <p className="text-gray-500 dark:text-gray-400">Cash-on-Cash</p>
+            <p className="font-semibold text-gray-900 dark:text-white">
               {(property.cash_on_cash_roi * 100).toFixed(1)}%
             </p>
           </div>
         )}
         {property.deal_score != null && (
           <div>
-            <p className="text-gray-500">Deal Score</p>
-            <p className="font-semibold">
+            <p className="text-gray-500 dark:text-gray-400">Deal Score</p>
+            <p className="font-semibold text-gray-900 dark:text-white">
               {property.deal_score.toFixed(0)}/100
             </p>
           </div>
         )}
       </div>
 
-      <div className="flex space-x-6 text-sm text-gray-700">
+      <div className="flex space-x-6 text-sm text-gray-700 dark:text-gray-300">
         <div className="flex items-center">
           <svg className="w-5 h-5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
           </svg>
           {property.size_sqft.toLocaleString()} sqft
         </div>
-        
+
         <div className="flex items-center">
           <svg className="w-5 h-5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
           </svg>
           {property.bedrooms} bed
         </div>
-        
+
         <div className="flex items-center">
           <svg className="w-5 h-5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
