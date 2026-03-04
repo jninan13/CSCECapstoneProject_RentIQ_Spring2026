@@ -5,6 +5,7 @@
 import React, { useState } from 'react';
 
 const SearchFilters = ({ onSearch }) => {
+  const [isExpanded, setIsExpanded] = useState(false);
   const [filters, setFilters] = useState({
     zip_code: '',
     min_price: '',
@@ -53,11 +54,30 @@ const SearchFilters = ({ onSearch }) => {
     onSearch({});
   };
 
+  const activeFilterCount = Object.values(filters).filter(Boolean).length;
+
   return (
     <div className="card mb-6">
-      <h2 className="text-xl font-bold text-gray-900 mb-4">Search Filters</h2>
-      
-      <form onSubmit={handleSubmit} className="space-y-4">
+      <div className="flex justify-between items-center">
+        <div className="flex items-center gap-3">
+          <h2 className="text-xl font-bold text-gray-900">Search Filters</h2>
+          {!isExpanded && activeFilterCount > 0 && (
+            <span className="text-sm text-gray-500">
+              {activeFilterCount} filter{activeFilterCount !== 1 ? 's' : ''} applied
+            </span>
+          )}
+        </div>
+        <button
+          type="button"
+          onClick={() => setIsExpanded((prev) => !prev)}
+          className="btn-secondary"
+        >
+          {isExpanded ? 'Hide filters' : 'Show filters'}
+        </button>
+      </div>
+
+      {isExpanded && (
+      <form onSubmit={handleSubmit} className="space-y-4 mt-4">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {/* Zip Code */}
           <div>
@@ -236,6 +256,7 @@ const SearchFilters = ({ onSearch }) => {
           </button>
         </div>
       </form>
+      )}
     </div>
   );
 };
