@@ -13,7 +13,14 @@ const PropertyList = () => {
   const [sortOption, setSortOption] = useState('');
 
   useEffect(() => {
-    // Load properties on mount
+    const params = new URLSearchParams(window.location.search);
+    const token = params.get("token");
+
+    if (token) {
+      localStorage.setItem("token", token);
+      window.history.replaceState({}, document.title, "/properties");
+    }
+
     handleSearch({});
   }, []);
 

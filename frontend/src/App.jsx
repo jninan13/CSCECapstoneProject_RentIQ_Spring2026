@@ -15,6 +15,7 @@ import About from './components/About/About';
 // Auth
 import Login from './components/Auth/Login';
 import Register from './components/Auth/Register';
+import OAuthSuccess from './components/Auth/OAuthSuccess';
 
 // Properties
 import PropertyList from './components/Properties/PropertyList';
@@ -38,6 +39,7 @@ function App() {
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
             <Route path="/about" element={<About />} />
+            <Route path="/oauth-success" element={<OAuthSuccess />} />
 
             
             {/* Protected routes */}
