@@ -4,6 +4,16 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { propertiesAPI, favoritesAPI } from '../../services/api';
+import {
+  PieChart,
+  Pie,
+  Cell,
+  Tooltip as RechartsTooltip,
+  Legend,
+  ResponsiveContainer
+} from 'recharts';
+import jsPDF from 'jspdf';
+import html2canvas from 'html2canvas';
 
 const PropertyDetail = () => {
   const { id } = useParams();
@@ -21,6 +31,8 @@ const PropertyDetail = () => {
   const [interestRate, setInterestRate] = useState(0.06);
   const debounceRef = useRef(null);
   const lastPropertyIdRef = useRef(null);
+  const reportRef = useRef(null);
+  const [isExporting, setIsExporting] = useState(false);
 
   useEffect(() => {
     window.scrollTo(0, 0);
@@ -104,6 +116,41 @@ const PropertyDetail = () => {
     }
   };
 
+  const handleExportPDF = async () => {
+    if (!reportRef.current) return;
+    setIsExporting(true);
+    try {
+      const canvas = await html2canvas(reportRef.current, { scale: 2, useCORS: true });
+      const imgData = canvas.toDataURL('image/png');
+      const pdf = new jsPDF({
+        orientation: 'p',
+        unit: 'mm',
+        format: 'a4',
+      });
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+
+      let heightLeft = pdfHeight;
+      let position = 0;
+
+      pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, pdfHeight);
+      heightLeft -= pdf.internal.pageSize.getHeight();
+
+      while (heightLeft >= 0) {
+        position = heightLeft - pdfHeight;
+        pdf.addPage();
+        pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, pdfHeight);
+        heightLeft -= pdf.internal.pageSize.getHeight();
+      }
+
+      pdf.save(`RentIQ_Analysis_${property.address.replace(/[\W_]+/g, '_')}.pdf`);
+    } catch (error) {
+      console.error('Error exporting PDF:', error);
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 transition-colors duration-300">
@@ -148,7 +195,7 @@ const PropertyDetail = () => {
           Back to Properties
         </button>
 
-        <div className="card">
+        <div className="card" ref={reportRef}>
           {/* Property Image */}
           <div className="mb-6 overflow-hidden rounded-xl">
             <img
@@ -179,23 +226,42 @@ const PropertyDetail = () => {
               </p>
             </div>
 
-            <button
-              onClick={handleFavoriteClick}
-              className="p-3 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-            >
-              <svg
-                className={`w-8 h-8 ${isFavorited ? 'fill-red-500 text-red-500' : 'fill-none text-gray-400 dark:text-gray-500'}`}
-                stroke="currentColor"
-                viewBox="0 0 24 24"
+            <div className="flex items-center gap-3">
+              <button
+                onClick={handleExportPDF}
+                disabled={isExporting}
+                className={`btn-secondary flex items-center gap-2 ${isExporting ? 'opacity-50 cursor-not-allowed' : ''}`}
+                title="Export to PDF"
               >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"
-                />
-              </svg>
-            </button>
+                {isExporting ? (
+                  <span className="inline-block w-4 h-4 border-2 border-gray-400 border-t-transparent rounded-full animate-spin"></span>
+                ) : (
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                )}
+                {isExporting ? 'Exporting...' : 'Export'}
+              </button>
+
+              <button
+                onClick={handleFavoriteClick}
+                className="p-3 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                title={isFavorited ? 'Remove from Favorites' : 'Add to Favorites'}
+              >
+                <svg
+                  className={`w-8 h-8 ${isFavorited ? 'fill-red-500 text-red-500' : 'fill-none text-gray-400 dark:text-gray-500'}`}
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"
+                  />
+                </svg>
+              </button>
+            </div>
           </div>
 
           {/* Key Metrics */}
@@ -326,6 +392,44 @@ const PropertyDetail = () => {
                         />
                       </tbody>
                     </table>
+                  </div>
+
+                  <div className="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg mb-6">
+                    <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">Gross Rent Breakdown</h3>
+                    <div className="h-64">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <PieChart>
+                          <Pie
+                            data={[
+                              { name: 'Operating Expenses', value: parseFloat(analysis.metrics.cash_flow.operating_expenses_annual) || 0, color: '#f59e0b' },
+                              { name: 'Debt Service', value: parseFloat(analysis.metrics.cash_flow.debt_service_annual) || 0, color: '#ef4444' },
+                              { name: 'Vacancy Loss', value: parseFloat(analysis.metrics.cash_flow.vacancy_loss_annual) || 0, color: '#6b7280' },
+                              { name: 'Net Cash Flow', value: Math.max(0, parseFloat(analysis.metrics.cash_flow.cash_flow_annual) || 0), color: '#10b981' }
+                            ].filter(item => item.value > 0)}
+                            cx="50%"
+                            cy="50%"
+                            innerRadius={60}
+                            outerRadius={100}
+                            paddingAngle={2}
+                            dataKey="value"
+                            stroke="transparent"
+                          >
+                            {
+                              [
+                                { name: 'Operating Expenses', value: parseFloat(analysis.metrics.cash_flow.operating_expenses_annual) || 0, color: '#f59e0b' },
+                                { name: 'Debt Service', value: parseFloat(analysis.metrics.cash_flow.debt_service_annual) || 0, color: '#ef4444' },
+                                { name: 'Vacancy Loss', value: parseFloat(analysis.metrics.cash_flow.vacancy_loss_annual) || 0, color: '#6b7280' },
+                                { name: 'Net Cash Flow', value: Math.max(0, parseFloat(analysis.metrics.cash_flow.cash_flow_annual) || 0), color: '#10b981' }
+                              ].filter(item => item.value > 0).map((entry, index) => (
+                                <Cell key={`cell-${index}`} fill={entry.color} />
+                              ))
+                            }
+                          </Pie>
+                          <RechartsTooltip formatter={(value) => `$${value.toLocaleString()}`} />
+                          <Legend />
+                        </PieChart>
+                      </ResponsiveContainer>
+                    </div>
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
