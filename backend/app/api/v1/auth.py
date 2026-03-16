@@ -13,7 +13,7 @@ from ...core.security import verify_password, get_password_hash, create_access_t
 from ...config import settings
 from ..deps import get_current_user
 
-router = APIRouter(prefix="/auth", tags=["authentication"], redirect_slashes=False)
+router = APIRouter(prefix="/auth", tags=["authentication"])
 
 
 @router.post("/register", response_model=Token, status_code=status.HTTP_201_CREATED)
@@ -85,8 +85,13 @@ async def login(user_data: UserLogin, db: Session = Depends(get_db)):
 
 
 @router.get("/google/callback")
-async def google_callback(code: str, db: Session = Depends(get_db)):
-    print("CALLBACK HIT, code:", code[:10])  # add this
+async def google_callback(code: str, db: Session = Depends(get_db)): 
+    if not settings.GOOGLE_CLIENT_ID or not settings.GOOGLE_CLIENT_SECRET:
+        raise HTTPException(
+            status_code=503,
+            detail="Google OAuth is not configured on this server"
+        )
+    
     client = AsyncOAuth2Client(
         client_id=settings.GOOGLE_CLIENT_ID,
         client_secret=settings.GOOGLE_CLIENT_SECRET,

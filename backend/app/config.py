@@ -27,9 +27,9 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
     
     # OAuth
-    GOOGLE_CLIENT_ID: Optional[str]
-    GOOGLE_CLIENT_SECRET: Optional[str]
-    GOOGLE_REDIRECT_URI: str 
+    GOOGLE_CLIENT_ID: Optional[str] = None
+    GOOGLE_CLIENT_SECRET: Optional[str] = None
+    GOOGLE_REDIRECT_URI: Optional[str] = None
     
     # CORS
     ALLOWED_ORIGINS: list = [
