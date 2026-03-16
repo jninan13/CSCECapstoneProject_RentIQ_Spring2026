@@ -8,6 +8,11 @@ from typing import List, Optional
 from datetime import datetime
 import math
 
+# Image API
+from fastapi import Response
+import httpx
+from ...config import settings
+
 from ...database import get_db
 from ...schemas import (
     PropertyResponse,
@@ -213,6 +218,81 @@ async def get_property(
     
     return property_response
 
+@router.get("/{property_id}/streetview.jpg")
+async def get_property_streetview(
+    property_id: int,
+    heading: int = Query(0, ge=0, le=360, description="Camera heading in degrees"),
+    pitch: int = Query(0, ge=-90, le=90, description="Camera pitch in degrees"),
+    fov: int = Query(80, ge=10, le=120, description="Field of view"),
+    width: int = Query(900, ge=100, le=2048, description="Image width"),
+    height: int = Query(500, ge=100, le=2048, description="Image height"),
+    db: Session = Depends(get_db),
+):
+    """
+    Fetches and return a Google Street View image for a property using its lat/lng.
+    The Google API key stays on the backend.
+    """
+    property_obj = db.query(Property).filter(Property.id == property_id).first()
+
+    if not property_obj:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Property not found"
+        )
+
+    if property_obj.lat is None or property_obj.lng is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Property is missing latitude/longitude"
+        )
+
+    if not settings.GOOGLE_MAPS_API_KEY:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="GOOGLE_MAPS_API_KEY is not configured"
+        )
+
+    location = f"{property_obj.lat},{property_obj.lng}"
+
+    metadata_params = {
+        "location": location,
+        "key": settings.GOOGLE_MAPS_API_KEY,
+    }
+
+    async with httpx.AsyncClient(timeout=15.0) as client:
+        metadata_response = await client.get(
+            "https://maps.googleapis.com/maps/api/streetview/metadata",
+            params=metadata_params,
+        )
+        metadata_response.raise_for_status()
+        metadata = metadata_response.json()
+
+        if metadata.get("status") != "OK":
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Street View not available: {metadata.get('status', 'UNKNOWN')}"
+            )
+
+        image_params = {
+            "size": f"{width}x{height}",
+            "location": location,
+            "heading": heading,
+            "pitch": pitch,
+            "fov": fov,
+            "key": settings.GOOGLE_MAPS_API_KEY,
+        }
+
+        image_response = await client.get(
+            "https://maps.googleapis.com/maps/api/streetview",
+            params=image_params,
+        )
+        image_response.raise_for_status()
+
+    return Response(
+        content=image_response.content,
+        media_type="image/jpeg",
+        headers={"Cache-Control": "public, max-age=86400"},
+    )
 
 @router.get("/{property_id}/analysis", response_model=InvestmentAnalysisResponse)
 async def get_property_investment_analysis(

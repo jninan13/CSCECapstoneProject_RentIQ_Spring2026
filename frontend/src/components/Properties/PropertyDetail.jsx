@@ -130,6 +130,10 @@ const PropertyDetail = () => {
     return 'bg-red-100 text-red-800';
   };
 
+  const streetViewUrl = property?.id
+  ? `http://localhost:8000/api/properties/${property.id}/streetview.jpg`
+  : '';
+
   return (
     <div className="min-h-screen bg-gray-50 py-8">
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -146,18 +150,23 @@ const PropertyDetail = () => {
         <div className="card">
         {/* Property Image */}
           <div className="mb-6 overflow-hidden rounded-xl">
-            {property.image_url ? (
-              <img
-                src={property.image_url}
-                alt={property.address}
-                className="h-64 w-full object-cover"
-                loading="lazy"
-              />
-            ) : (
-              <div className="h-64 w-full flex items-center justify-center bg-gray-100 text-gray-500">
-                No image available
-              </div>
-            )}
+            <img
+              src={streetViewUrl}
+              alt={property.address}
+              className="h-64 w-full object-cover"
+              loading="lazy"
+              onError={(e) => {
+                e.currentTarget.style.display = 'none';
+                const fallback = e.currentTarget.nextSibling;
+                if (fallback) fallback.style.display = 'flex';
+              }}
+            />
+            <div
+              className="h-64 w-full items-center justify-center bg-gray-100 text-gray-500"
+              style={{ display: 'none' }}
+            >
+              No Street View available
+            </div>
           </div>
 
           {/* Header */}
