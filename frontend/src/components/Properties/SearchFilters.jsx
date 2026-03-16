@@ -60,7 +60,7 @@ const SearchFilters = ({ onSearch }) => {
     <div className="card mb-6">
       <div className="flex justify-between items-center">
         <div className="flex items-center gap-3">
-          <h2 className="text-xl font-bold text-gray-900">Search Filters</h2>
+          <h2 className="text-xl font-bold text-gray-900 dark:text-white">Search Filters</h2>
           {!isExpanded && activeFilterCount > 0 && (
             <span className="text-sm text-gray-500">
               {activeFilterCount} filter{activeFilterCount !== 1 ? 's' : ''} applied

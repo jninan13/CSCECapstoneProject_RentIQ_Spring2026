@@ -23,6 +23,7 @@ const PropertyDetail = () => {
   const lastPropertyIdRef = useRef(null);
 
   useEffect(() => {
+    window.scrollTo(0, 0);
     const loadProperty = async () => {
       try {
         const response = await propertiesAPI.getById(id);
