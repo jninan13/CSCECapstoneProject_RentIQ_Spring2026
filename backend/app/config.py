@@ -29,7 +29,10 @@ class Settings(BaseSettings):
     # OAuth
     GOOGLE_CLIENT_ID: Optional[str] = None
     GOOGLE_CLIENT_SECRET: Optional[str] = None
-    GOOGLE_REDIRECT_URI: str = "http://localhost:3000/auth/google/callback"
+    GOOGLE_REDIRECT_URI: Optional[str] = None
+    
+    # Maps
+    GOOGLE_MAPS_API_KEY: Optional[str] = None
     
     # CORS
     ALLOWED_ORIGINS: list = [
