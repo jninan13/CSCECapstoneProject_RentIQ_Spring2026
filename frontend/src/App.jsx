@@ -21,6 +21,7 @@ import OAuthSuccess from './components/Auth/OAuthSuccess';
 // Properties
 import PropertyList from './components/Properties/PropertyList';
 import PropertyDetail from './components/Properties/PropertyDetail';
+import PropertyCompare from './components/Properties/PropertyCompare';
 
 // Favorites
 import FavoritesList from './components/Favorites/FavoritesList';
@@ -49,6 +50,14 @@ function App() {
                 element={
                   <PrivateRoute>
                     <PropertyList />
+                  </PrivateRoute>
+                }
+              />
+              <Route
+                path="/properties/compare"
+                element={
+                  <PrivateRoute>
+                    <PropertyCompare />
                   </PrivateRoute>
                 }
               />

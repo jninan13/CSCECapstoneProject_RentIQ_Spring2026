@@ -2,6 +2,7 @@
  * Property list page with search and filters.
  */
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { propertiesAPI } from '../../services/api';
 import PropertyCard from './PropertyCard';
 import SearchFilters from './SearchFilters';
@@ -11,6 +12,9 @@ const PropertyList = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [sortOption, setSortOption] = useState('');
+  const [compareList, setCompareList] = useState([]);
+
+  const navigate = useNavigate();
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -36,6 +40,22 @@ const PropertyList = () => {
       console.error('Search error:', err);
     } finally {
       setLoading(false);
+    }
+  };
+
+
+  const handleCompareToggle = (property) => {
+    const alreadySelected = compareList.some((p) => p.id === property.id);
+
+    if (alreadySelected) {
+      setCompareList(compareList.filter((p) => p.id !== property.id));
+      return;
+    }
+
+    if (compareList.length < 3) {
+      setCompareList([...compareList, property]);
+    } else {
+      alert('You can compare up to 3 properties.');
     }
   };
 
@@ -67,6 +87,21 @@ const PropertyList = () => {
         </h1>
 
         <SearchFilters onSearch={handleSearch} />
+
+        {compareList.length > 0 && (
+          <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg flex justify-between items-center">
+            <div className="text-sm text-blue-900">
+              {compareList.length} propert{compareList.length === 1 ? 'y' : 'ies'} selected for comparison
+            </div>
+
+            <button
+              onClick={() => navigate('/properties/compare', { state: { compareList } })}
+              className="btn-primary"
+            >
+              Compare Now
+            </button>
+          </div>
+        )}
 
         {error && (
           <div className="bg-red-50 dark:bg-red-900/30 border border-red-400 dark:border-red-800 text-red-700 dark:text-red-400 px-4 py-3 rounded mb-6">
@@ -112,6 +147,8 @@ const PropertyList = () => {
                   key={property.id}
                   property={property}
                   onFavoriteChange={() => handleSearch({})}
+                  onCompareToggle={handleCompareToggle}
+                  isCompared={compareList.some((p) => p.id === property.id)}
                 />
               ))}
             </div>
