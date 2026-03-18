@@ -15,6 +15,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy application code
 COPY app ./app
 COPY seed_data.py .
+COPY load_csv_data.py .
+COPY USA_clean_unique_with_city.csv .
 
 ENV PYTHONPATH=/app
 

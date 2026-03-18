@@ -129,7 +129,7 @@ async def google_callback(code: str, db: Session = Depends(get_db)):
 
     # redirect back to frontend with token
     return RedirectResponse(
-        url=f"http://localhost:3000/oauth-success?token={access_token}",
+        url=f"http://localhost:5173/oauth-success?token={access_token}",
         status_code=302
     )
 

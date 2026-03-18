@@ -58,3 +58,6 @@ out/
 
 # Docker
 **/*-override.yml
+
+
+backend/*.csv
