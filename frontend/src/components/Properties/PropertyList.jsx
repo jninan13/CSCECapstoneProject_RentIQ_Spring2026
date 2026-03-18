@@ -89,8 +89,8 @@ const PropertyList = () => {
         <SearchFilters onSearch={handleSearch} />
 
         {compareList.length > 0 && (
-          <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg flex justify-between items-center">
-            <div className="text-sm text-blue-900">
+          <div className="mb-6 p-4 bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-800 rounded-lg flex justify-between items-center">
+            <div className="text-sm text-blue-900 dark:text-blue-200">
               {compareList.length} propert{compareList.length === 1 ? 'y' : 'ies'} selected for comparison
             </div>
 
