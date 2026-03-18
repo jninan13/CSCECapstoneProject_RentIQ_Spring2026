@@ -8,11 +8,14 @@ import PropertyCard from './PropertyCard';
 import SearchFilters from './SearchFilters';
 
 const PropertyList = () => {
+  const PAGE_SIZE = 20;
   const [properties, setProperties] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [sortOption, setSortOption] = useState('');
   const [compareList, setCompareList] = useState([]);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [activeFilters, setActiveFilters] = useState({});
 
   const navigate = useNavigate();
 
@@ -28,12 +31,16 @@ const PropertyList = () => {
     handleSearch({});
   }, []);
 
-  const handleSearch = async (filters) => {
+  const fetchProperties = async (filters, page = 1) => {
     setLoading(true);
     setError('');
 
     try {
-      const response = await propertiesAPI.search(filters);
+      const response = await propertiesAPI.search({
+        skip: (page - 1) * PAGE_SIZE,
+        limit: PAGE_SIZE,
+        ...filters,
+      });
       setProperties(response.data);
     } catch (err) {
       setError('Failed to load properties. Please try again.');
@@ -41,6 +48,18 @@ const PropertyList = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleSearch = async (filters) => {
+    setCurrentPage(1);
+    setActiveFilters(filters);
+    await fetchProperties(filters, 1);
+  };
+
+  const handlePageChange = async (nextPage) => {
+    if (nextPage < 1 || loading) return;
+    setCurrentPage(nextPage);
+    await fetchProperties(activeFilters, nextPage);
   };
 
 
@@ -123,7 +142,7 @@ const PropertyList = () => {
             <div className="mb-4 text-gray-600 dark:text-gray-400">
               <div className="flex justify-between items-center mb-6">
                 <div className="text-gray-600 dark:text-gray-400">
-                  Found {properties.length} properties
+                  Showing {properties.length} properties
                 </div>
 
                 <div>
@@ -151,6 +170,28 @@ const PropertyList = () => {
                   isCompared={compareList.some((p) => p.id === property.id)}
                 />
               ))}
+            </div>
+
+            <div className="mt-8 flex items-center justify-between">
+              <button
+                onClick={() => handlePageChange(currentPage - 1)}
+                disabled={currentPage === 1 || loading}
+                className="btn-secondary disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Previous
+              </button>
+
+              <span className="text-sm text-gray-600 dark:text-gray-400">
+                Page {currentPage}
+              </span>
+
+              <button
+                onClick={() => handlePageChange(currentPage + 1)}
+                disabled={properties.length < PAGE_SIZE || loading}
+                className="btn-secondary disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Next
+              </button>
             </div>
           </>
         )}
