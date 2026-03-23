@@ -13,7 +13,6 @@ import {
   ResponsiveContainer
 } from 'recharts';
 import jsPDF from 'jspdf';
-import html2canvas from 'html2canvas';
 
 const PropertyDetail = () => {
   const { id } = useParams();
@@ -33,6 +32,19 @@ const PropertyDetail = () => {
   const lastPropertyIdRef = useRef(null);
   const reportRef = useRef(null);
   const [isExporting, setIsExporting] = useState(false);
+  const [showExportMenu, setShowExportMenu] = useState(false);
+  const exportMenuRef = useRef(null);
+
+  // Close export dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (exportMenuRef.current && !exportMenuRef.current.contains(e.target)) {
+        setShowExportMenu(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   useEffect(() => {
     window.scrollTo(0, 0);
@@ -116,38 +128,317 @@ const PropertyDetail = () => {
     }
   };
 
-  const handleExportPDF = async () => {
-    if (!reportRef.current) return;
+  const handleExportPDF = () => {
+    if (!property) return;
     setIsExporting(true);
     try {
-      const canvas = await html2canvas(reportRef.current, { scale: 2, useCORS: true });
-      const imgData = canvas.toDataURL('image/png');
-      const pdf = new jsPDF({
-        orientation: 'p',
-        unit: 'mm',
-        format: 'a4',
+      const pdf = new jsPDF({ orientation: 'p', unit: 'mm', format: 'a4' });
+      const pageWidth = pdf.internal.pageSize.getWidth();
+      const pageHeight = pdf.internal.pageSize.getHeight();
+      const margin = 15;
+      const contentWidth = pageWidth - margin * 2;
+      let y = margin;
+
+      const checkPageBreak = (needed) => {
+        if (y + needed > pageHeight - margin) {
+          pdf.addPage();
+          y = margin;
+        }
+      };
+
+      // ── Header ──
+      pdf.setFont('helvetica', 'bold');
+      pdf.setFontSize(18);
+      pdf.text('RentIQ', margin, y);
+      pdf.setFontSize(9);
+      pdf.setFont('helvetica', 'normal');
+      pdf.text('Property Analysis Report', pageWidth - margin, y, { align: 'right' });
+      y += 4;
+      pdf.setDrawColor(0);
+      pdf.setLineWidth(0.5);
+      pdf.line(margin, y, pageWidth - margin, y);
+      y += 6;
+
+      // ── Report metadata ──
+      pdf.setFontSize(9);
+      const dateStr = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+      pdf.text(`Report generated: ${dateStr}`, margin, y);
+      y += 8;
+
+      // ── Property Address Header ──
+      pdf.setFont('helvetica', 'bold');
+      pdf.setFontSize(14);
+      pdf.text(property.address, margin, y);
+      y += 5;
+      pdf.setFont('helvetica', 'normal');
+      pdf.setFontSize(10);
+      pdf.text(`${property.city}, ${property.state} ${property.zip_code || ''}`, margin, y);
+      y += 8;
+
+      // ── Key Metrics ──
+      pdf.setFont('helvetica', 'bold');
+      pdf.setFontSize(12);
+      pdf.text('Key Metrics', margin, y);
+      y += 2;
+      pdf.setLineWidth(0.3);
+      pdf.line(margin, y, pageWidth - margin, y);
+      y += 5;
+
+      const formatCurrency = (v) => v != null ? `$${parseFloat(v).toLocaleString()}` : '—';
+      const formatPercent = (v) => v != null ? `${(v * 100).toFixed(1)}%` : '—';
+
+      const keyMetrics = [
+        ['Price', formatCurrency(property.price)],
+        ['Profitability Score', property.profitability_score?.toFixed(1) || '—'],
+        ['Estimated Monthly Rent', property.estimated_rent ? `${formatCurrency(property.estimated_rent)}/mo` : '—'],
+      ];
+
+      keyMetrics.forEach(([key, val], idx) => {
+        checkPageBreak(6);
+        if (idx % 2 === 0) {
+          pdf.setFillColor(245, 245, 245);
+          pdf.rect(margin, y - 3.5, contentWidth, 6, 'F');
+        }
+        pdf.setFont('helvetica', 'bold');
+        pdf.setFontSize(9);
+        pdf.text(`${key}:`, margin + 2, y);
+        pdf.setFont('helvetica', 'normal');
+        pdf.text(String(val), margin + 60, y);
+        y += 6;
       });
-      const pdfWidth = pdf.internal.pageSize.getWidth();
-      const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+      y += 6;
 
-      let heightLeft = pdfHeight;
-      let position = 0;
+      // ── Property Details ──
+      checkPageBreak(20);
+      pdf.setFont('helvetica', 'bold');
+      pdf.setFontSize(12);
+      pdf.text('Property Details', margin, y);
+      y += 2;
+      pdf.setLineWidth(0.3);
+      pdf.line(margin, y, pageWidth - margin, y);
+      y += 5;
 
-      pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, pdfHeight);
-      heightLeft -= pdf.internal.pageSize.getHeight();
+      const propDetails = [
+        ['Square Footage', property.size_sqft ? `${property.size_sqft.toLocaleString()} sqft` : '—'],
+        ['Bedrooms', String(property.bedrooms ?? '—')],
+        ['Bathrooms', String(property.bathrooms ?? '—')],
+        ['Property Type', property.property_type ? property.property_type.replace('_', ' ') : '—'],
+        ['Year Built', String(property.year_built ?? '—')],
+        ['Price / Sqft', property.price && property.size_sqft ? `$${(parseFloat(property.price) / property.size_sqft).toFixed(2)}` : '—'],
+      ];
 
-      while (heightLeft >= 0) {
-        position = heightLeft - pdfHeight;
-        pdf.addPage();
-        pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, pdfHeight);
-        heightLeft -= pdf.internal.pageSize.getHeight();
+      propDetails.forEach(([key, val], idx) => {
+        checkPageBreak(6);
+        if (idx % 2 === 0) {
+          pdf.setFillColor(245, 245, 245);
+          pdf.rect(margin, y - 3.5, contentWidth, 6, 'F');
+        }
+        pdf.setFont('helvetica', 'bold');
+        pdf.setFontSize(9);
+        pdf.text(`${key}:`, margin + 2, y);
+        pdf.setFont('helvetica', 'normal');
+        pdf.text(String(val), margin + 60, y);
+        y += 6;
+      });
+      y += 6;
+
+      // ── Investment Analysis (if available) ──
+      if (analysis) {
+        checkPageBreak(20);
+        pdf.setFont('helvetica', 'bold');
+        pdf.setFontSize(12);
+        pdf.text('Investment Analysis', margin, y);
+        y += 2;
+        pdf.setLineWidth(0.3);
+        pdf.line(margin, y, pageWidth - margin, y);
+        y += 5;
+
+        const investMetrics = [
+          ['Cap Rate', formatPercent(analysis.metrics.cap_rate)],
+          ['Cash-on-Cash ROI', formatPercent(analysis.metrics.cash_on_cash_roi)],
+          [`${analysis.metrics.assumptions.analysis_horizon_years}-Year ROI`, formatPercent(analysis.metrics.total_roi_horizon)],
+          ['Deal Score', analysis.metrics.deal_score != null ? `${analysis.metrics.deal_score.toFixed(0)}/100` : '—'],
+        ];
+
+        investMetrics.forEach(([key, val], idx) => {
+          checkPageBreak(6);
+          if (idx % 2 === 0) {
+            pdf.setFillColor(245, 245, 245);
+            pdf.rect(margin, y - 3.5, contentWidth, 6, 'F');
+          }
+          pdf.setFont('helvetica', 'bold');
+          pdf.setFontSize(9);
+          pdf.text(`${key}:`, margin + 2, y);
+          pdf.setFont('helvetica', 'normal');
+          pdf.text(String(val), margin + 60, y);
+          y += 6;
+        });
+        y += 6;
+
+        // Cash flow breakdown
+        checkPageBreak(20);
+        pdf.setFont('helvetica', 'bold');
+        pdf.setFontSize(11);
+        pdf.text('Annual Cash Flow Breakdown', margin, y);
+        y += 2;
+        pdf.setLineWidth(0.2);
+        pdf.line(margin, y, pageWidth - margin, y);
+        y += 5;
+
+        const cf = analysis.metrics.cash_flow;
+        const cashFlowRows = [
+          ['Gross Rent', cf.gross_rent_annual],
+          ['Vacancy Loss', cf.vacancy_loss_annual],
+          ['Effective Gross Income', cf.effective_gross_income_annual],
+          ['Operating Expenses', cf.operating_expenses_annual],
+          ['Net Operating Income (NOI)', cf.noi_annual],
+          ['Debt Service', cf.debt_service_annual],
+          ['Annual Cash Flow', cf.cash_flow_annual],
+        ];
+
+        cashFlowRows.forEach(([key, val], idx) => {
+          checkPageBreak(6);
+          const num = parseFloat(val);
+          const formatted = isNaN(num) ? '—' : `$${num.toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
+          if (idx % 2 === 0) {
+            pdf.setFillColor(245, 245, 245);
+            pdf.rect(margin, y - 3.5, contentWidth, 6, 'F');
+          }
+          const isTotal = key === 'Annual Cash Flow' || key === 'Effective Gross Income' || key === 'Net Operating Income (NOI)';
+          pdf.setFont('helvetica', isTotal ? 'bold' : 'normal');
+          pdf.setFontSize(9);
+          pdf.text(`${key}:`, margin + 2, y);
+          pdf.text(formatted, margin + 75, y);
+          y += 6;
+        });
+        y += 6;
+
+        // Assumptions
+        checkPageBreak(20);
+        pdf.setFont('helvetica', 'bold');
+        pdf.setFontSize(11);
+        pdf.text('Key Assumptions', margin, y);
+        y += 2;
+        pdf.setLineWidth(0.2);
+        pdf.line(margin, y, pageWidth - margin, y);
+        y += 5;
+
+        const assumptions = [
+          ['Down Payment', `${(parseFloat(analysis.metrics.assumptions.down_payment_pct) * 100).toFixed(1)}%`],
+          ['Interest Rate', `${(parseFloat(analysis.metrics.assumptions.interest_rate_annual) * 100).toFixed(2)}%`],
+          ['Vacancy Rate', `${(parseFloat(analysis.metrics.assumptions.vacancy_rate) * 100).toFixed(1)}%`],
+          ['Appreciation', `${(parseFloat(analysis.metrics.assumptions.appreciation_rate_annual) * 100).toFixed(1)}%`],
+          ['Analysis Horizon', `${analysis.metrics.assumptions.analysis_horizon_years} years`],
+        ];
+
+        assumptions.forEach(([key, val], idx) => {
+          checkPageBreak(6);
+          if (idx % 2 === 0) {
+            pdf.setFillColor(245, 245, 245);
+            pdf.rect(margin, y - 3.5, contentWidth, 6, 'F');
+          }
+          pdf.setFont('helvetica', 'bold');
+          pdf.setFontSize(9);
+          pdf.text(`${key}:`, margin + 2, y);
+          pdf.setFont('helvetica', 'normal');
+          pdf.text(String(val), margin + 60, y);
+          y += 6;
+        });
+        y += 6;
       }
+
+      // ── Footer / Disclaimer ──
+      checkPageBreak(20);
+      pdf.setDrawColor(0);
+      pdf.setLineWidth(0.3);
+      pdf.line(margin, y, pageWidth - margin, y);
+      y += 5;
+      pdf.setFont('helvetica', 'italic');
+      pdf.setFontSize(7);
+      pdf.text('Disclaimer: This report is generated for informational purposes only. Investment performance depends on market conditions,', margin, y);
+      y += 3.5;
+      pdf.text('maintenance costs, vacancy rates, financing terms, and other factors. RentIQ does not guarantee the accuracy of these estimates.', margin, y);
+      y += 3.5;
+      pdf.text('Consult a qualified financial advisor before making investment decisions.', margin, y);
 
       pdf.save(`RentIQ_Analysis_${property.address.replace(/[\W_]+/g, '_')}.pdf`);
     } catch (error) {
       console.error('Error exporting PDF:', error);
     } finally {
       setIsExporting(false);
+    }
+  };
+
+  const handleExportCSV = () => {
+    if (!property) return;
+    setIsExporting(true);
+    try {
+      const formatCurrency = (v) => v != null ? `$${parseFloat(v).toLocaleString()}` : '—';
+      const formatPercent = (v) => v != null ? `${(v * 100).toFixed(1)}%` : '—';
+
+      const rows = [
+        ['Field', 'Value'],
+        ['Address', property.address],
+        ['City', property.city],
+        ['State', property.state],
+        ['Zip Code', property.zip_code || '—'],
+        ['Price', formatCurrency(property.price)],
+        ['Profitability Score', property.profitability_score?.toFixed(1) || '—'],
+        ['Estimated Rent', property.estimated_rent ? `${formatCurrency(property.estimated_rent)}/mo` : '—'],
+        ['Square Footage', property.size_sqft ? `${property.size_sqft.toLocaleString()} sqft` : '—'],
+        ['Bedrooms', String(property.bedrooms ?? '—')],
+        ['Bathrooms', String(property.bathrooms ?? '—')],
+        ['Property Type', property.property_type ? property.property_type.replace('_', ' ') : '—'],
+        ['Year Built', String(property.year_built ?? '—')],
+        ['Price / Sqft', property.price && property.size_sqft ? `$${(parseFloat(property.price) / property.size_sqft).toFixed(2)}` : '—'],
+      ];
+
+      if (analysis) {
+        rows.push(
+          ['', ''],
+          ['Investment Analysis', ''],
+          ['Cap Rate', formatPercent(analysis.metrics.cap_rate)],
+          ['Cash-on-Cash ROI', formatPercent(analysis.metrics.cash_on_cash_roi)],
+          [`${analysis.metrics.assumptions.analysis_horizon_years}-Year ROI`, formatPercent(analysis.metrics.total_roi_horizon)],
+          ['Deal Score', analysis.metrics.deal_score != null ? `${analysis.metrics.deal_score.toFixed(0)}/100` : '—'],
+          ['', ''],
+          ['Annual Cash Flow', ''],
+          ['Gross Rent', `$${parseFloat(analysis.metrics.cash_flow.gross_rent_annual).toLocaleString()}`],
+          ['Vacancy Loss', `$${parseFloat(analysis.metrics.cash_flow.vacancy_loss_annual).toLocaleString()}`],
+          ['Effective Gross Income', `$${parseFloat(analysis.metrics.cash_flow.effective_gross_income_annual).toLocaleString()}`],
+          ['Operating Expenses', `$${parseFloat(analysis.metrics.cash_flow.operating_expenses_annual).toLocaleString()}`],
+          ['NOI', `$${parseFloat(analysis.metrics.cash_flow.noi_annual).toLocaleString()}`],
+          ['Debt Service', `$${parseFloat(analysis.metrics.cash_flow.debt_service_annual).toLocaleString()}`],
+          ['Annual Cash Flow', `$${parseFloat(analysis.metrics.cash_flow.cash_flow_annual).toLocaleString()}`],
+        );
+      }
+
+      const csvContent = rows
+        .map((row) => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(','))
+        .join('\n');
+
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.setAttribute('href', url);
+      link.setAttribute('download', `RentIQ_Analysis_${property.address.replace(/[\W_]+/g, '_')}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Error exporting CSV:', error);
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  const handleExport = (type) => {
+    setShowExportMenu(false);
+    if (type === 'pdf') {
+      handleExportPDF();
+    } else {
+      handleExportCSV();
     }
   };
 
@@ -227,21 +518,51 @@ const PropertyDetail = () => {
             </div>
 
             <div className="flex items-center gap-3">
-              <button
-                onClick={handleExportPDF}
-                disabled={isExporting}
-                className={`btn-secondary flex items-center gap-2 ${isExporting ? 'opacity-50 cursor-not-allowed' : ''}`}
-                title="Export to PDF"
-              >
-                {isExporting ? (
-                  <span className="inline-block w-4 h-4 border-2 border-gray-400 border-t-transparent rounded-full animate-spin"></span>
-                ) : (
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                  </svg>
+              <div className="relative" ref={exportMenuRef}>
+                <button
+                  onClick={() => setShowExportMenu((prev) => !prev)}
+                  disabled={isExporting}
+                  className={`btn-secondary flex items-center gap-2 ${isExporting ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  title="Export"
+                >
+                  {isExporting ? (
+                    <span className="inline-block w-4 h-4 border-2 border-gray-400 border-t-transparent rounded-full animate-spin"></span>
+                  ) : (
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                  )}
+                  {isExporting ? 'Exporting...' : 'Export'}
+                  {!isExporting && (
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  )}
+                </button>
+
+                {showExportMenu && (
+                  <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 rounded-lg shadow-lg dark:shadow-gray-950/40 border border-gray-200 dark:border-gray-700 z-50 overflow-hidden">
+                    <button
+                      onClick={() => handleExport('pdf')}
+                      className="w-full text-left px-4 py-3 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-3 transition-colors"
+                    >
+                      <svg className="w-4 h-4 text-red-500" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4z" clipRule="evenodd" />
+                      </svg>
+                      Export as PDF
+                    </button>
+                    <button
+                      onClick={() => handleExport('csv')}
+                      className="w-full text-left px-4 py-3 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-3 transition-colors border-t border-gray-200 dark:border-gray-700"
+                    >
+                      <svg className="w-4 h-4 text-green-500" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M6 2a2 2 0 00-2 2v12a2 2 0 002 2h8a2 2 0 002-2V7.414A2 2 0 0015.414 6L12 2.586A2 2 0 0010.586 2H6z" clipRule="evenodd" />
+                      </svg>
+                      Export as CSV
+                    </button>
+                  </div>
                 )}
-                {isExporting ? 'Exporting...' : 'Export'}
-              </button>
+              </div>
 
               <button
                 onClick={handleFavoriteClick}

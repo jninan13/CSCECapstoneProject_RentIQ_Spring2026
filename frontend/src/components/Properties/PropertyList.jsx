@@ -2,7 +2,7 @@
  * Property list page with search and filters.
  */
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { propertiesAPI } from '../../services/api';
 import PropertyCard from './PropertyCard';
 import SearchFilters from './SearchFilters';
@@ -12,9 +12,11 @@ const PropertyList = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [sortOption, setSortOption] = useState('');
-  const [compareList, setCompareList] = useState([]);
-
   const navigate = useNavigate();
+  const location = useLocation();
+  const [compareList, setCompareList] = useState(
+    () => location.state?.compareList || []
+  );
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -94,12 +96,20 @@ const PropertyList = () => {
               {compareList.length} propert{compareList.length === 1 ? 'y' : 'ies'} selected for comparison
             </div>
 
-            <button
-              onClick={() => navigate('/properties/compare', { state: { compareList } })}
-              className="btn-primary"
-            >
-              Compare Now
-            </button>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => navigate('/properties/compare', { state: { compareList } })}
+                className="btn-primary"
+              >
+                Compare Now
+              </button>
+              <button
+                onClick={() => setCompareList([])}
+                className="px-4 py-2 rounded-lg text-sm font-medium bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
           </div>
         )}
 
