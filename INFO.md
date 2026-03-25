@@ -70,14 +70,37 @@ docker compose up --build -d
 - **Backend API API**: `http://localhost:8000`
 - **API Documentation**: `http://localhost:8000/docs`
 
-### 4. Seed Sample Data (Optional)
+### 4. Seed Data (Optional)
 
-To add sample properties to your database, you can run the seed script inside the backend container:
+`seed_data.py` now:
+
+1. Ensures the dev user exists.
+2. Loads real property data from `USA_clean_unique_with_city.csv` by calling `load_csv_data.py`.
+
+Run it inside the backend container:
 
 ```bash
-docker exec -it rentiq_backend python seed_data.py
+docker exec rentiq_backend python seed_data.py
 ```
-*(Make sure `seed_data.py` exists in the backend root)*
+
+### 5. Add More Properties from CSV (Append Mode)
+
+To load more homes later, run `load_csv_data.py` directly with:
+
+- `start_row`: where to start in the CSV (after header)
+- `max_rows`: how many rows to process
+
+```bash
+docker exec rentiq_backend python load_csv_data.py USA_clean_unique_with_city.csv <start_row> <max_rows>
+```
+
+Example:
+
+```bash
+docker exec rentiq_backend python load_csv_data.py USA_clean_unique_with_city.csv 31 50
+```
+
+This loader is append-based and includes duplicate checks, so it does not need to drop tables for normal incremental loads.
 
 ## Running Tests
 

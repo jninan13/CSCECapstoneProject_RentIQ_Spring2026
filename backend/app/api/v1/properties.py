@@ -62,7 +62,9 @@ async def search_properties(
     radius_miles: Optional[float] = Query(None, ge=0, le=50),
     min_score: Optional[float] = Query(None, ge=0, le=100),
     skip: int = Query(0, ge=0),
-    limit: int = Query(20, ge=1, le=100),
+    limit: int = Query(21, ge=1, le=100),
+    sort_by: str = Query("profitability_score", pattern="^(profitability_score|price|size_sqft)$"),
+    sort_order: str = Query("desc", pattern="^(asc|desc)$"),
     current_user: Optional[User] = Depends(get_current_user_optional),
     db: Session = Depends(get_db)
 ):
@@ -88,7 +90,9 @@ async def search_properties(
         radius_miles=radius_miles,
         min_score=min_score,
         skip=skip,
-        limit=limit
+        limit=limit,
+        sort_by=sort_by,
+        sort_order=sort_order,
     )
     
     # Check cache
@@ -127,8 +131,17 @@ async def search_properties(
         if min_score is not None:
             query = query.filter(Property.profitability_score >= min_score)
         
-        # Order by score descending
-        query = query.order_by(Property.profitability_score.desc())
+        # Apply sorting before pagination so ordering is correct across full result set.
+        sort_column_map = {
+            "profitability_score": Property.profitability_score,
+            "price": Property.price,
+            "size_sqft": Property.size_sqft,
+        }
+        sort_column = sort_column_map.get(sort_by, Property.profitability_score)
+        if sort_order == "asc":
+            query = query.order_by(sort_column.asc())
+        else:
+            query = query.order_by(sort_column.desc())
         
         # Execute query
         properties_db = query.offset(skip).limit(limit).all()

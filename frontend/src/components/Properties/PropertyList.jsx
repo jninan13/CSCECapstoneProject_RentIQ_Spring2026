@@ -8,7 +8,7 @@ import PropertyCard from './PropertyCard';
 import SearchFilters from './SearchFilters';
 
 const PropertyList = () => {
-  const PAGE_SIZE = 20;
+  const PAGE_SIZE = 21;
   const [properties, setProperties] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -31,15 +31,39 @@ const PropertyList = () => {
     handleSearch({});
   }, []);
 
-  const fetchProperties = async (filters, page = 1) => {
+  const fetchProperties = async (filters, page = 1, selectedSort = sortOption) => {
     setLoading(true);
     setError('');
 
     try {
-      const response = await propertiesAPI.search({
+      const params = {
         skip: (page - 1) * PAGE_SIZE,
         limit: PAGE_SIZE,
         ...filters,
+      };
+
+      if (selectedSort === 'priceLowHigh') {
+        params.sort_by = 'price';
+        params.sort_order = 'asc';
+      } else if (selectedSort === 'priceHighLow') {
+        params.sort_by = 'price';
+        params.sort_order = 'desc';
+      } else if (selectedSort === 'scoreLowHigh') {
+        params.sort_by = 'profitability_score';
+        params.sort_order = 'asc';
+      } else if (selectedSort === 'scoreHighLow') {
+        params.sort_by = 'profitability_score';
+        params.sort_order = 'desc';
+      } else if (selectedSort === 'sqftLowHigh') {
+        params.sort_by = 'size_sqft';
+        params.sort_order = 'asc';
+      } else if (selectedSort === 'sqftHighLow') {
+        params.sort_by = 'size_sqft';
+        params.sort_order = 'desc';
+      }
+
+      const response = await propertiesAPI.search({
+        ...params,
       });
       setProperties(response.data);
     } catch (err) {
@@ -78,25 +102,11 @@ const PropertyList = () => {
     }
   };
 
-  const sortedProperties = [...properties].sort((a, b) => {
-    if (sortOption === 'priceLowHigh') {
-      return parseFloat(a.price) - parseFloat(b.price);
-    }
-
-    if (sortOption === 'priceHighLow') {
-      return parseFloat(b.price) - parseFloat(a.price);
-    }
-
-    if (sortOption === 'scoreHighLow') {
-      return b.profitability_score - a.profitability_score;
-    }
-
-    if (sortOption === 'sqftHighLow') {
-      return b.size_sqft - a.size_sqft;
-    }
-
-    return 0;
-  });
+  const handleSortChange = async (nextSort) => {
+    setSortOption(nextSort);
+    setCurrentPage(1);
+    await fetchProperties(activeFilters, 1, nextSort);
+  };
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-8 transition-colors duration-300">
@@ -148,20 +158,22 @@ const PropertyList = () => {
                 <div>
                   <select
                     value={sortOption}
-                    onChange={(e) => setSortOption(e.target.value)}
+                    onChange={(e) => handleSortChange(e.target.value)}
                     className="input-field w-56 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
                   >
                     <option value="">Sort By</option>
                     <option value="priceLowHigh">Price (Low to High)</option>
                     <option value="priceHighLow">Price (High to Low)</option>
+                    <option value="scoreLowHigh">Profitability Score (Low to High)</option>
                     <option value="scoreHighLow">Profitability Score</option>
+                    <option value="sqftLowHigh">Square Footage (Low to High)</option>
                     <option value="sqftHighLow">Square Footage</option>
                   </select>
                 </div>
               </div>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {sortedProperties.map((property) => (
+              {properties.map((property) => (
                 <PropertyCard
                   key={property.id}
                   property={property}

@@ -4,6 +4,7 @@ Handles CSV parsing, field mapping, validation, and database insertion.
 Run: python load_csv_data.py
 """
 import csv
+import re
 import sys
 from decimal import Decimal
 from pathlib import Path
@@ -42,9 +43,90 @@ def parse_float(value: Any) -> Optional[float]:
         return None
 
 
+def normalize_us_zip_code(value: Any) -> Optional[str]:
+    """Return a US 5-digit ZIP code when possible."""
+    if value in (None, ""):
+        return None
 
-def reverse_geocode(lat: float, lng: float) -> Optional[str]:
-    """Return address string from lat/lon using openstreetmap"""
+    text = str(value).strip()
+    if not text:
+        return None
+
+    # Match standard ZIP or ZIP+4 and keep the 5-digit ZIP.
+    match = re.search(r"\b(\d{5})(?:-\d{4})?\b", text)
+    if match:
+        return match.group(1)
+
+    # Fallback: keep first 5 digits when separators/spaces are unusual.
+    digits_only = "".join(ch for ch in text if ch.isdigit())
+    if len(digits_only) >= 5:
+        return digits_only[:5]
+
+    return None
+
+
+def normalize_text(value: Any) -> str:
+    """Normalize text for robust dedupe comparisons."""
+    if value is None:
+        return ""
+    return " ".join(str(value).strip().lower().split())
+
+
+def normalize_price_key(value: Any) -> str:
+    """Normalize price for stable dedupe key comparisons."""
+    if value is None:
+        return "0.00"
+    try:
+        return f"{Decimal(str(value)):.2f}"
+    except Exception:
+        return str(value)
+
+
+def build_property_dedupe_key(property_data: Dict[str, Any]) -> tuple:
+    """Build a stable dedupe key for comparing existing/new homes."""
+    lat = property_data.get("lat")
+    lng = property_data.get("lng")
+
+    if lat is not None and lng is not None:
+        # Coordinates are the strongest signal for the same home.
+        return (
+            "coords",
+            round(float(lat), 6),
+            round(float(lng), 6),
+            normalize_price_key(property_data.get("price")),
+            int(property_data.get("size_sqft") or 0),
+            int(property_data.get("bedrooms") or 0),
+        )
+
+    return (
+        "addr",
+        normalize_text(property_data.get("address")),
+        normalize_text(property_data.get("city")),
+        normalize_text(property_data.get("state")),
+        normalize_text(property_data.get("zip_code")),
+        normalize_price_key(property_data.get("price")),
+        int(property_data.get("size_sqft") or 0),
+        int(property_data.get("bedrooms") or 0),
+    )
+
+
+def parse_coordinate_key_from_row(row: Dict[str, str]) -> Optional[tuple]:
+    """Build a coordinate key directly from CSV row values for fast duplicate checks."""
+    try:
+        lat = float(row.get("latitude", 0))
+        lng = float(row.get("longitude", 0))
+    except (ValueError, TypeError):
+        return None
+
+    if lat == 0 or lng == 0:
+        return None
+
+    return (round(lat, 6), round(lng, 6))
+
+
+
+def reverse_geocode(lat: float, lng: float) -> Optional[Dict[str, Optional[str]]]:
+    """Return address and postcode from lat/lon using OpenStreetMap Nominatim."""
     key = f"{lat}, {lng}"
     if key in geocode_cache:
         return geocode_cache[key]
@@ -61,13 +143,18 @@ def reverse_geocode(lat: float, lng: float) -> Optional[str]:
         "addressdetails": 1
     }
     try:
-        time.sleep(1)
+        time.sleep(2)
         res = requests.get(url, params=params, headers={"User-Agent": "RentIQ/1.0"})
         res.raise_for_status()
         data = res.json()
         address = data.get("display_name")
-        geocode_cache[key] = address
-        return address
+        postcode = data.get("address", {}).get("postcode")
+        geocode_data = {
+            "address": address,
+            "zip_code": normalize_us_zip_code(postcode),
+        }
+        geocode_cache[key] = geocode_data
+        return geocode_data
     except Exception as e:
         print(f"❌ Geocoding error for ({lat}, {lng}): {str(e)}")
         return None
@@ -89,7 +176,8 @@ def parse_csv_row(row: Dict[str, str]) -> Optional[Dict[str, Any]]:
         address = row.get("city", "Unknown")  # Use city as part of address since full address not in CSV
         city = row.get("city", "").strip()
         state = row.get("state", "").strip().upper()
-        full_address = reverse_geocode(float(row.get("latitude")), float(row.get("longitude"))) if row.get("latitude") and row.get("longitude") else None
+        geocode_data = reverse_geocode(float(row.get("latitude")), float(row.get("longitude"))) if row.get("latitude") and row.get("longitude") else None
+        full_address = geocode_data.get("address") if geocode_data else None
         if not full_address:
             full_address = f"{city}, {state}"
 
@@ -170,8 +258,10 @@ def parse_csv_row(row: Dict[str, str]) -> Optional[Dict[str, Any]]:
             lat, lng = None, None
         
         # Zip code
-        zip_code = row.get("zip_code", "00000").strip()
-        if not zip_code or zip_code == "":
+        zip_code = normalize_us_zip_code(row.get("zip_code", ""))
+        if (not zip_code) and geocode_data and geocode_data.get("zip_code"):
+            zip_code = normalize_us_zip_code(geocode_data.get("zip_code"))
+        if not zip_code:
             zip_code = "00000"
         
         # Estimate rent if not provided
@@ -282,15 +372,48 @@ def load_csv_into_db(csv_file_path: str, batch_size: int = 100, start_row: Optio
     db = SessionLocal()
     
     try:
-        # Clear existing properties
-        deleted = db.query(Property).delete()
-        db.commit()
-        if deleted:
-            print(f"🗑️  Cleared {deleted} existing properties")
+        # Build a dedupe index from existing records to support append-only loads.
+        existing_keys = set()
+        existing_coordinate_keys = set()
+        existing_rows = db.query(
+            Property.address,
+            Property.city,
+            Property.state,
+            Property.zip_code,
+            Property.price,
+            Property.size_sqft,
+            Property.bedrooms,
+            Property.lat,
+            Property.lng,
+        ).all()
+
+        for row in existing_rows:
+            if row.lat is not None and row.lng is not None:
+                existing_coordinate_keys.add((round(float(row.lat), 6), round(float(row.lng), 6)))
+
+            existing_keys.add(
+                build_property_dedupe_key(
+                    {
+                        "address": row.address,
+                        "city": row.city,
+                        "state": row.state,
+                        "zip_code": row.zip_code,
+                        "price": row.price,
+                        "size_sqft": row.size_sqft,
+                        "bedrooms": row.bedrooms,
+                        "lat": row.lat,
+                        "lng": row.lng,
+                    }
+                )
+            )
+
+        print(f"🧠 Existing dedupe index loaded: {len(existing_keys)} homes")
+        print(f"📍 Existing coordinate index loaded: {len(existing_coordinate_keys)} homes")
         
         # Load CSV
         loaded_count = 0
         skipped_count = 0
+        duplicate_count = 0
         batch = []
         
         with open(csv_file, 'r', encoding='utf-8') as f:
@@ -311,12 +434,26 @@ def load_csv_into_db(csv_file_path: str, batch_size: int = 100, start_row: Optio
                     continue  # Skip rows before start
                 if end_row_num and row_num > end_row_num:
                     break  # Stop after reaching end
+
+                # Fast path: if lat/lon already exists, skip before geocoding/API work.
+                coordinate_key = parse_coordinate_key_from_row(row)
+                if coordinate_key and coordinate_key in existing_coordinate_keys:
+                    duplicate_count += 1
+                    continue
                 
                 property_data = parse_csv_row(row)
                 
                 if property_data:
+                    dedupe_key = build_property_dedupe_key(property_data)
+                    if dedupe_key in existing_keys:
+                        duplicate_count += 1
+                        continue
+
                     property_obj = Property(**property_data)
                     batch.append(property_obj)
+                    existing_keys.add(dedupe_key)
+                    if property_data.get("lat") is not None and property_data.get("lng") is not None:
+                        existing_coordinate_keys.add((round(float(property_data["lat"]), 6), round(float(property_data["lng"]), 6)))
                     loaded_count += 1
                     
                     # Insert batch
@@ -330,7 +467,7 @@ def load_csv_into_db(csv_file_path: str, batch_size: int = 100, start_row: Optio
                 
                 # Progress indicator
                 if row_num % 1000 == 0:
-                    print(f"📈 Processed {row_num} rows ({loaded_count} valid, {skipped_count} skipped)...")
+                    print(f"📈 Processed {row_num} rows ({loaded_count} loaded, {duplicate_count} duplicate, {skipped_count} invalid)...")
         
         # Insert remaining batch
         if batch:
@@ -339,8 +476,9 @@ def load_csv_into_db(csv_file_path: str, batch_size: int = 100, start_row: Optio
         
         print(f"\n✅ Data load complete!")
         print(f"   ✓ Loaded: {loaded_count} properties")
+        print(f"   ↺ Duplicate skipped: {duplicate_count}")
         print(f"   ⚠️  Skipped: {skipped_count} invalid rows")
-        print(f"   📊 Total processed: {loaded_count + skipped_count}")
+        print(f"   📊 Total processed: {loaded_count + duplicate_count + skipped_count}")
         
     except Exception as e:
         db.rollback()
