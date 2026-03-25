@@ -176,8 +176,8 @@ const PropertyList = () => {
                     <option value="priceHighLow">Price (High to Low)</option>
                     <option value="scoreLowHigh">Profitability Score (Low to High)</option>
                     <option value="scoreHighLow">Profitability Score</option>
-                    <option value="sqftLowHigh">Square Footage (Low to High)</option>
-                    <option value="sqftHighLow">Square Footage</option>
+                    <option value="sqftLowHigh">Area (m²) Low to High</option>
+                    <option value="sqftHighLow">Area (m²) High to Low</option>
                   </select>
                 </div>
               </div>

@@ -127,7 +127,7 @@ const SearchFilters = ({ onSearch }) => {
             {/* Min Size */}
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Min Size (sqft)
+                Min Size (m²)
               </label>
               <input
                 type="number"
@@ -142,7 +142,7 @@ const SearchFilters = ({ onSearch }) => {
             {/* Max Size */}
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Max Size (sqft)
+                Max Size (m²)
               </label>
               <input
                 type="number"

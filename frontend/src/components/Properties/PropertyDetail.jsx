@@ -219,12 +219,12 @@ const PropertyDetail = () => {
       y += 5;
 
       const propDetails = [
-        ['Square Footage', property.size_sqft ? `${property.size_sqft.toLocaleString()} sqft` : '—'],
+        ['Area (m²)', property.size_sqft ? `${property.size_sqft.toLocaleString()} m²` : '—'],
         ['Bedrooms', String(property.bedrooms ?? '—')],
         ['Bathrooms', String(property.bathrooms ?? '—')],
         ['Property Type', property.property_type ? property.property_type.replace('_', ' ') : '—'],
         ['Year Built', String(property.year_built ?? '—')],
-        ['Price / Sqft', property.price && property.size_sqft ? `$${(parseFloat(property.price) / property.size_sqft).toFixed(2)}` : '—'],
+        ['Price / m²', property.price && property.size_sqft ? `$${(parseFloat(property.price) / property.size_sqft).toFixed(2)}` : '—'],
       ];
 
       propDetails.forEach(([key, val], idx) => {
@@ -385,12 +385,12 @@ const PropertyDetail = () => {
         ['Price', formatCurrency(property.price)],
         ['Profitability Score', property.profitability_score?.toFixed(1) || '—'],
         ['Estimated Rent', property.estimated_rent ? `${formatCurrency(property.estimated_rent)}/mo` : '—'],
-        ['Square Footage', property.size_sqft ? `${property.size_sqft.toLocaleString()} sqft` : '—'],
+        ['Area (m²)', property.size_sqft ? `${property.size_sqft.toLocaleString()} m²` : '—'],
         ['Bedrooms', String(property.bedrooms ?? '—')],
         ['Bathrooms', String(property.bathrooms ?? '—')],
         ['Property Type', property.property_type ? property.property_type.replace('_', ' ') : '—'],
         ['Year Built', String(property.year_built ?? '—')],
-        ['Price / Sqft', property.price && property.size_sqft ? `$${(parseFloat(property.price) / property.size_sqft).toFixed(2)}` : '—'],
+        ['Price / m²', property.price && property.size_sqft ? `$${(parseFloat(property.price) / property.size_sqft).toFixed(2)}` : '—'],
       ];
 
       if (analysis) {
@@ -615,8 +615,8 @@ const PropertyDetail = () => {
 
             <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
               <div>
-                <p className="text-sm text-gray-600 dark:text-gray-400">Square Footage</p>
-                <p className="text-lg font-semibold text-gray-900 dark:text-white">{property.size_sqft.toLocaleString()} sqft</p>
+                <p className="text-sm text-gray-600 dark:text-gray-400">Area (m²)</p>
+                <p className="text-lg font-semibold text-gray-900 dark:text-white">{property.size_sqft.toLocaleString()} m²</p>
               </div>
 
               <div>
@@ -642,7 +642,7 @@ const PropertyDetail = () => {
               )}
 
               <div>
-                <p className="text-sm text-gray-600 dark:text-gray-400">Price/sqft</p>
+                <p className="text-sm text-gray-600 dark:text-gray-400">Price/m²</p>
                 <p className="text-lg font-semibold text-gray-900 dark:text-white">
                   ${(parseFloat(property.price) / property.size_sqft).toFixed(2)}
                 </p>

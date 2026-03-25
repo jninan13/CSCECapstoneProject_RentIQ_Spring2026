@@ -49,12 +49,12 @@ const PropertyCompare = () => {
     { label: 'Cap Rate', values: compareList.map((p) => formatPercent(p.cap_rate)) },
     { label: 'Cash-on-Cash ROI', values: compareList.map((p) => formatPercent(p.cash_on_cash_roi)) },
     { label: 'Deal Score', values: compareList.map((p) => p.deal_score != null ? `${p.deal_score.toFixed(0)}/100` : '—') },
-    { label: 'Square Footage', values: compareList.map((p) => p.size_sqft ? `${p.size_sqft.toLocaleString()} sqft` : '—') },
+    { label: 'Area (m²)', values: compareList.map((p) => p.size_sqft ? `${p.size_sqft.toLocaleString()} m²` : '—') },
     { label: 'Bedrooms', values: compareList.map((p) => String(p.bedrooms ?? '—')) },
     { label: 'Bathrooms', values: compareList.map((p) => String(p.bathrooms ?? '—')) },
     { label: 'Property Type', values: compareList.map((p) => p.property_type ? p.property_type.replace('_', ' ') : '—') },
     { label: 'Year Built', values: compareList.map((p) => String(p.year_built ?? '—')) },
-    { label: 'Price / Sqft', values: compareList.map((p) => p.price && p.size_sqft ? `$${(parseFloat(p.price) / p.size_sqft).toFixed(2)}` : '—') },
+    { label: 'Price / m²', values: compareList.map((p) => p.price && p.size_sqft ? `$${(parseFloat(p.price) / p.size_sqft).toFixed(2)}` : '—') },
   ];
 
   // ── Professional PDF Export (structured, black & white) ──
@@ -221,12 +221,12 @@ const PropertyCompare = () => {
           ['Cap Rate', formatPercent(p.cap_rate)],
           ['Cash-on-Cash ROI', formatPercent(p.cash_on_cash_roi)],
           ['Deal Score', p.deal_score != null ? `${p.deal_score.toFixed(0)}/100` : '—'],
-          ['Square Footage', p.size_sqft ? `${p.size_sqft.toLocaleString()} sqft` : '—'],
+          ['Area (m²)', p.size_sqft ? `${p.size_sqft.toLocaleString()} m²` : '—'],
           ['Bedrooms', String(p.bedrooms ?? '—')],
           ['Bathrooms', String(p.bathrooms ?? '—')],
           ['Property Type', p.property_type ? p.property_type.replace('_', ' ') : '—'],
           ['Year Built', String(p.year_built ?? '—')],
-          ['Price / Sqft', p.price && p.size_sqft ? `$${(parseFloat(p.price) / p.size_sqft).toFixed(2)}` : '—'],
+          ['Price / m²', p.price && p.size_sqft ? `$${(parseFloat(p.price) / p.size_sqft).toFixed(2)}` : '—'],
         ];
 
         details.forEach(([key, val], dIdx) => {
