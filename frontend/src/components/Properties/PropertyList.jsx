@@ -2,7 +2,7 @@
  * Property list page with search and filters.
  */
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { propertiesAPI } from '../../services/api';
 import PropertyCard from './PropertyCard';
 import SearchFilters from './SearchFilters';
@@ -13,11 +13,13 @@ const PropertyList = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [sortOption, setSortOption] = useState('');
-  const [compareList, setCompareList] = useState([]);
   const [currentPage, setCurrentPage] = useState(1);
   const [activeFilters, setActiveFilters] = useState({});
-
   const navigate = useNavigate();
+  const location = useLocation();
+  const [compareList, setCompareList] = useState(
+    () => location.state?.compareList || []
+  );
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -118,17 +120,25 @@ const PropertyList = () => {
         <SearchFilters onSearch={handleSearch} />
 
         {compareList.length > 0 && (
-          <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg flex justify-between items-center">
-            <div className="text-sm text-blue-900">
+          <div className="mb-6 p-4 bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-800 rounded-lg flex justify-between items-center">
+            <div className="text-sm text-blue-900 dark:text-blue-200">
               {compareList.length} propert{compareList.length === 1 ? 'y' : 'ies'} selected for comparison
             </div>
 
-            <button
-              onClick={() => navigate('/properties/compare', { state: { compareList } })}
-              className="btn-primary"
-            >
-              Compare Now
-            </button>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => navigate('/properties/compare', { state: { compareList } })}
+                className="btn-primary"
+              >
+                Compare Now
+              </button>
+              <button
+                onClick={() => setCompareList([])}
+                className="px-4 py-2 rounded-lg text-sm font-medium bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
           </div>
         )}
 

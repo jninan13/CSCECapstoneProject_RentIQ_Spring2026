@@ -7,7 +7,6 @@ A full-stack web application for beginner investors to identify profitable real 
 - **Frontend**: React.js with Vite and Tailwind CSS
 - **Backend**: FastAPI (Python)
 - **Database**: PostgreSQL
-- **Cache**: Redis
 - **Containerization**: Docker & Docker Compose
 
 ## Features
@@ -28,8 +27,7 @@ CSCECapstoneProject_RentIQ_Spring2026/
 │   │   ├── api/      # API endpoints
 │   │   ├── core/     # Business logic (security, scoring)
 │   │   ├── models/   # SQLAlchemy models
-│   │   ├── schemas/  # Pydantic schemas
-│   │   └── utils/    # Utilities (cache, etc.)
+│   │   └── schemas/  # Pydantic schemas
 │   └── tests/        # Backend tests
 ├── frontend/         # React application (Vite)
 │   ├── Dockerfile
@@ -58,7 +56,7 @@ cd CSCECapstoneProject_RentIQ_Spring2026
 
 ### 2. Start the Application
 
-The entire application stack (Frontend, Backend, PostgreSQL, and Redis) is containerized and can be started with a single command:
+The entire application stack (Frontend, Backend, and PostgreSQL) is containerized and can be started with a single command:
 
 ```bash
 docker compose up --build -d
@@ -176,15 +174,15 @@ docker compose logs -f frontend
 docker compose logs -f postgres
 ```
 
-### Database or Redis Connection Issues
-If the backend fails to connect to the database or Redis, ensure that the respective containers are healthy:
+### Database Connection Issues
+If the backend fails to connect to the database, ensure the Postgres container is healthy:
 ```bash
 docker compose ps
-# Check if postgres and redis show as (healthy)
+# Check if postgres shows as (healthy)
 ```
 
 ### Port Conflicts
-If ports 5432, 6379, 8000, or 5173 are in use on your host machine, modify the port mappings in `docker-compose.yml` or stop the conflicting services before running `docker compose up`.
+If ports 5432, 8000, or 5173 are in use on your host machine, modify the port mappings in `docker-compose.yml` or stop the conflicting services before running `docker compose up`.
 
 ## License
 

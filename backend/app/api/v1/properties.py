@@ -23,7 +23,6 @@ from ...schemas import (
     CashFlowBreakdownSchema,
 )
 from ...models import Property, Favorite, User
-from ...utils import get_cached, set_cached, generate_cache_key
 from ..deps import get_current_user_optional
 from ...core.investment import analyze_investment, InvestmentAssumptions
 
@@ -73,113 +72,78 @@ async def search_properties(
     
     Supports filtering by location, price range, size, bedrooms, bathrooms,
     property type, radius from zip code, and minimum profitability score.
-    
-    Results are cached in Redis for improved performance.
     """
-    # Generate cache key
-    cache_key = generate_cache_key(
-        "properties_search",
-        zip_code=zip_code,
-        min_price=min_price,
-        max_price=max_price,
-        min_size=min_size,
-        max_size=max_size,
-        bedrooms=bedrooms,
-        bathrooms=bathrooms,
-        property_type=property_type,
-        radius_miles=radius_miles,
-        min_score=min_score,
-        skip=skip,
-        limit=limit,
-        sort_by=sort_by,
-        sort_order=sort_order,
-    )
-    
-    # Check cache
-    cached_results = get_cached(cache_key)
-    if cached_results:
-        properties = [PropertyResponse(**prop) for prop in cached_results]
+    query = db.query(Property)
+
+    if zip_code:
+        query = query.filter(Property.zip_code == zip_code)
+
+    if min_price is not None:
+        query = query.filter(Property.price >= min_price)
+
+    if max_price is not None:
+        query = query.filter(Property.price <= max_price)
+
+    if min_size is not None:
+        query = query.filter(Property.size_sqft >= min_size)
+
+    if max_size is not None:
+        query = query.filter(Property.size_sqft <= max_size)
+
+    if bedrooms is not None:
+        query = query.filter(Property.bedrooms == bedrooms)
+
+    if bathrooms is not None:
+        query = query.filter(Property.bathrooms >= bathrooms)
+
+    if property_type:
+        query = query.filter(Property.property_type.ilike(f"%{property_type}%"))
+
+    if min_score is not None:
+        query = query.filter(Property.profitability_score >= min_score)
+
+    # Apply sorting before pagination so ordering is correct across full result set.
+    sort_column_map = {
+        "profitability_score": Property.profitability_score,
+        "price": Property.price,
+        "size_sqft": Property.size_sqft,
+    }
+    sort_column = sort_column_map.get(sort_by, Property.profitability_score)
+    if sort_order == "asc":
+        query = query.order_by(sort_column.asc())
     else:
-        # Build query
-        query = db.query(Property)
-        
-        # Apply filters
-        if zip_code:
-            query = query.filter(Property.zip_code == zip_code)
-        
-        if min_price is not None:
-            query = query.filter(Property.price >= min_price)
-        
-        if max_price is not None:
-            query = query.filter(Property.price <= max_price)
-        
-        if min_size is not None:
-            query = query.filter(Property.size_sqft >= min_size)
-        
-        if max_size is not None:
-            query = query.filter(Property.size_sqft <= max_size)
-        
-        if bedrooms is not None:
-            query = query.filter(Property.bedrooms == bedrooms)
-        
-        if bathrooms is not None:
-            query = query.filter(Property.bathrooms >= bathrooms)
-        
-        if property_type:
-            query = query.filter(Property.property_type.ilike(f"%{property_type}%"))
-        
-        if min_score is not None:
-            query = query.filter(Property.profitability_score >= min_score)
-        
-        # Apply sorting before pagination so ordering is correct across full result set.
-        sort_column_map = {
-            "profitability_score": Property.profitability_score,
-            "price": Property.price,
-            "size_sqft": Property.size_sqft,
-        }
-        sort_column = sort_column_map.get(sort_by, Property.profitability_score)
-        if sort_order == "asc":
-            query = query.order_by(sort_column.asc())
-        else:
-            query = query.order_by(sort_column.desc())
-        
-        # Execute query
-        properties_db = query.offset(skip).limit(limit).all()
-        
-        # Apply radius filter if specified (post-query filtering)
-        if radius_miles and zip_code and properties_db:
-            # Get center coordinates from first property with this zip
-            center_prop = db.query(Property).filter(
-                and_(Property.zip_code == zip_code, Property.lat.isnot(None))
-            ).first()
-            
-            if center_prop and center_prop.lat and center_prop.lng:
-                filtered_props = []
-                for prop in properties_db:
-                    if prop.lat and prop.lng:
-                        distance = calculate_distance(
-                            center_prop.lat, center_prop.lng,
-                            prop.lat, prop.lng
-                        )
-                        if distance <= radius_miles:
-                            filtered_props.append(prop)
-                properties_db = filtered_props
-        
-        properties: List[PropertyResponse] = []
-        for prop in properties_db:
-            response_obj = PropertyResponse.model_validate(prop)
-            # Attach summary investment metrics using default assumptions
-            analysis = analyze_investment(prop)
-            if analysis:
-                response_obj.cap_rate = analysis.cap_rate
-                response_obj.gross_yield = analysis.gross_yield
-                response_obj.net_yield = analysis.net_yield
-                response_obj.cash_on_cash_roi = analysis.cash_on_cash_roi
-                response_obj.deal_score = analysis.deal_score
-            properties.append(response_obj)
-        
-        # Cache results
-        set_cached(cache_key, [prop.model_dump() for prop in properties])
+        query = query.order_by(sort_column.desc())
+
+    properties_db = query.offset(skip).limit(limit).all()
+
+    if radius_miles and zip_code and properties_db:
+        center_prop = db.query(Property).filter(
+            and_(Property.zip_code == zip_code, Property.lat.isnot(None))
+        ).first()
+
+        if center_prop and center_prop.lat and center_prop.lng:
+            filtered_props = []
+            for prop in properties_db:
+                if prop.lat and prop.lng:
+                    distance = calculate_distance(
+                        center_prop.lat, center_prop.lng,
+                        prop.lat, prop.lng
+                    )
+                    if distance <= radius_miles:
+                        filtered_props.append(prop)
+            properties_db = filtered_props
+
+    properties = []
+    for prop in properties_db:
+        response_obj = PropertyResponse.model_validate(prop)
+        analysis = analyze_investment(prop)
+        if analysis:
+            response_obj.cap_rate = analysis.cap_rate
+            response_obj.gross_yield = analysis.gross_yield
+            response_obj.net_yield = analysis.net_yield
+            response_obj.cash_on_cash_roi = analysis.cash_on_cash_roi
+            response_obj.deal_score = analysis.deal_score
+        properties.append(response_obj)
     
     # Add favorite status if user is authenticated
     if current_user:

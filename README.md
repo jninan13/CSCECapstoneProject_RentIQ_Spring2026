@@ -18,7 +18,6 @@ This project addresses that problem by combining data-driven financial modeling 
 - FastAPI
 - React (Vite)
 - PostgreSQL
-- Redis
 - Docker
 
 ## How to Run
