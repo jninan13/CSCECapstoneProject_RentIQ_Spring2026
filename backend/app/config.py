@@ -2,8 +2,21 @@
 Configuration settings for the application.
 Uses Pydantic settings for type validation and env var management.
 """
+import json
+import os
 from pydantic_settings import BaseSettings
 from typing import Optional
+
+
+def get_allowed_origins():
+    """Read ALLOWED_ORIGINS from env var (JSON list) or use defaults for local dev."""
+    env_origins = os.environ.get("ALLOWED_ORIGINS")
+    if env_origins:
+        return json.loads(env_origins)
+    return [
+        "http://localhost:3000",
+        "http://localhost:5173",  # Vite default
+    ]
 
 
 class Settings(BaseSettings):
@@ -28,11 +41,9 @@ class Settings(BaseSettings):
     # Maps
     GOOGLE_MAPS_API_KEY: Optional[str] = None
     
-    # CORS
-    ALLOWED_ORIGINS: list = [
-        "http://localhost:3000",
-        "http://localhost:5173",  # Vite default
-    ]
+    # CORS - reads from ALLOWED_ORIGINS env var in production,
+    # falls back to localhost for local dev
+    ALLOWED_ORIGINS: list = get_allowed_origins()
     
     class Config:
         env_file = ".env"
