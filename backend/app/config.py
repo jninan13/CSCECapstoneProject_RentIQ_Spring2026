@@ -32,6 +32,7 @@ class Settings(BaseSettings):
     ALLOWED_ORIGINS: list = [
         "http://localhost:3000",
         "http://localhost:5173",  # Vite default
+        "http://localhost:4173",
     ]
     
     class Config:
