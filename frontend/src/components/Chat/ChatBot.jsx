@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useLocation } from 'react-router-dom';
 import { chatAPI } from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
@@ -9,15 +9,24 @@ const WELCOME_MESSAGE = {
     "Hi! I'm RentIQ Assistant. I can help you with real estate investment questions, explain property scores, or discuss any listing you're viewing. What can I help you with?",
 };
 
+const DEFAULT_WIDTH = 384;
+const DEFAULT_HEIGHT = 512;
+const MIN_WIDTH = 320;
+const MIN_HEIGHT = 360;
+const MAX_WIDTH = 700;
+const MAX_HEIGHT = 800;
+
 function ChatBot() {
   const { isAuthenticated } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState([WELCOME_MESSAGE]);
   const [inputValue, setInputValue] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [size, setSize] = useState({ w: DEFAULT_WIDTH, h: DEFAULT_HEIGHT });
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
   const location = useLocation();
+  const resizeRef = useRef(null);
 
   const propertyId = (() => {
     const match = location.pathname.match(/^\/properties\/(\d+)$/);
@@ -33,6 +42,47 @@ function ChatBot() {
       inputRef.current?.focus();
     }
   }, [isOpen]);
+
+  const handleResizeStart = useCallback((edge, e) => {
+    e.preventDefault();
+    const startX = e.clientX;
+    const startY = e.clientY;
+    const startW = size.w;
+    const startH = size.h;
+
+    const BOTTOM_OFFSET = 24;
+    const navbar = document.querySelector('nav');
+    const navbarHeight = navbar ? navbar.getBoundingClientRect().height : 0;
+
+    const onMove = (moveEvent) => {
+      let newW = startW;
+      let newH = startH;
+
+      if (edge === 'left' || edge === 'top-left') {
+        newW = Math.min(MAX_WIDTH, Math.max(MIN_WIDTH, startW - (moveEvent.clientX - startX)));
+      }
+      if (edge === 'top' || edge === 'top-left') {
+        const maxAllowedH = window.innerHeight - navbarHeight - BOTTOM_OFFSET - 8;
+        const rawH = startH - (moveEvent.clientY - startY);
+        newH = Math.min(MAX_HEIGHT, maxAllowedH, Math.max(MIN_HEIGHT, rawH));
+      }
+
+      setSize({ w: newW, h: newH });
+    };
+
+    const onUp = () => {
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+      document.body.style.userSelect = '';
+      document.body.style.cursor = '';
+    };
+
+    document.body.style.userSelect = 'none';
+    document.body.style.cursor =
+      edge === 'top-left' ? 'nwse-resize' : edge === 'top' ? 'ns-resize' : 'ew-resize';
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+  }, [size]);
 
   if (!isAuthenticated) return null;
 
@@ -103,7 +153,25 @@ function ChatBot() {
   }
 
   return (
-    <div className="fixed bottom-6 right-6 z-50 w-96 h-[32rem] flex flex-col rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 overflow-hidden">
+    <div
+      ref={resizeRef}
+      className="fixed bottom-6 right-6 z-50 flex flex-col rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 overflow-hidden"
+      style={{ width: size.w, height: size.h }}
+    >
+      {/* Resize handles */}
+      <div
+        onMouseDown={(e) => handleResizeStart('top', e)}
+        className="absolute top-0 left-3 right-3 h-1.5 cursor-ns-resize z-10"
+      />
+      <div
+        onMouseDown={(e) => handleResizeStart('left', e)}
+        className="absolute top-3 left-0 bottom-3 w-1.5 cursor-ew-resize z-10"
+      />
+      <div
+        onMouseDown={(e) => handleResizeStart('top-left', e)}
+        className="absolute top-0 left-0 w-4 h-4 cursor-nwse-resize z-20"
+      />
+
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 bg-primary-600 dark:bg-primary-700 text-white shrink-0">
         <div className="flex items-center gap-2">
