@@ -35,6 +35,10 @@ const PropertyDetail = () => {
   const [showExportMenu, setShowExportMenu] = useState(false);
   const exportMenuRef = useRef(null);
 
+  const [aiExplanation, setAiExplanation] = useState(null);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiError, setAiError] = useState(null);
+
   // Close export dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (e) => {
@@ -442,6 +446,27 @@ const PropertyDetail = () => {
     }
   };
 
+  const handleExplainWithAI = async () => {
+    if (!property) return;
+    setAiLoading(true);
+    setAiError(null);
+    setAiExplanation(null);
+    try {
+      const response = await propertiesAPI.getExplanation(property.id, {
+        down_payment_pct: downPaymentPct,
+        vacancy_rate: vacancyRate,
+        interest_rate_annual: interestRate,
+      });
+      setAiExplanation(response.data.explanation);
+    } catch (err) {
+      const message =
+        err.response?.data?.detail || 'Failed to generate AI explanation. Please try again.';
+      setAiError(message);
+    } finally {
+      setAiLoading(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 transition-colors duration-300">
@@ -653,7 +678,29 @@ const PropertyDetail = () => {
           {/* Investment Analysis */}
           {property.estimated_rent && (
             <div className="border-t border-gray-200 dark:border-gray-700 mt-6 pt-6">
-              <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-4">Investment Analysis</h2>
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-xl font-bold text-gray-900 dark:text-white">Investment Analysis</h2>
+                {analysis && (
+                  <button
+                    onClick={handleExplainWithAI}
+                    disabled={aiLoading}
+                    className={`inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
+                      aiLoading
+                        ? 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-400 dark:text-indigo-500 cursor-not-allowed'
+                        : 'bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-100 dark:hover:bg-indigo-900/40'
+                    }`}
+                  >
+                    {aiLoading ? (
+                      <span className="inline-block w-4 h-4 border-2 border-indigo-400 border-t-transparent rounded-full animate-spin" />
+                    ) : (
+                      <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.455 2.456L21.75 6l-1.036.259a3.375 3.375 0 00-2.455 2.456zM16.894 20.567L16.5 21.75l-.394-1.183a2.25 2.25 0 00-1.423-1.423L13.5 18.75l1.183-.394a2.25 2.25 0 001.423-1.423l.394-1.183.394 1.183a2.25 2.25 0 001.423 1.423l1.183.394-1.183.394a2.25 2.25 0 00-1.423 1.423z" />
+                      </svg>
+                    )}
+                    {aiLoading ? 'Generating...' : 'Explain with AI'}
+                  </button>
+                )}
+              </div>
 
               {analysisLoading && (
                 <div className="text-sm text-gray-500 dark:text-gray-400 mb-4">Loading investment metrics…</div>
@@ -678,6 +725,44 @@ const PropertyDetail = () => {
                     />
                     <SummaryCard label="Deal Score" value={analysis.metrics.deal_score} format="score" />
                   </div>
+
+                  {aiError && (
+                    <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4 mb-6">
+                      <div className="flex items-start gap-3">
+                        <svg className="w-5 h-5 text-red-500 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        <p className="text-sm text-red-700 dark:text-red-300">{aiError}</p>
+                      </div>
+                    </div>
+                  )}
+
+                  {aiExplanation && (
+                    <div className="bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-800 rounded-lg p-5 mb-6">
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center gap-2">
+                          <svg className="w-5 h-5 text-indigo-600 dark:text-indigo-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" />
+                          </svg>
+                          <h3 className="text-sm font-semibold text-indigo-800 dark:text-indigo-300">AI Analysis</h3>
+                        </div>
+                        <button
+                          onClick={() => setAiExplanation(null)}
+                          className="text-indigo-400 hover:text-indigo-600 dark:hover:text-indigo-300 transition-colors"
+                          title="Dismiss"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                          </svg>
+                        </button>
+                      </div>
+                      <div className="text-sm text-indigo-900 dark:text-indigo-200 leading-relaxed space-y-3">
+                        {aiExplanation.split('\n').filter(Boolean).map((paragraph, i) => (
+                          <p key={i}>{paragraph}</p>
+                        ))}
+                      </div>
+                    </div>
+                  )}
 
                   <div className="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg mb-6">
                     <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">Annual Cash Flow Breakdown</h3>

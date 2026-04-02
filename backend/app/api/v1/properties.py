@@ -7,11 +7,15 @@ from sqlalchemy import and_, or_
 from typing import List, Optional
 from datetime import datetime
 import math
+import logging
 
 # Image API
 from fastapi import Response
 import httpx
+import google.generativeai as genai
 from ...config import settings
+
+logger = logging.getLogger(__name__)
 
 from ...database import get_db
 from ...schemas import (
@@ -378,3 +382,130 @@ async def get_property_investment_analysis(
         generated_at=datetime.utcnow(),
         metrics=metrics_schema,
     )
+
+
+def _build_explanation_prompt(property_obj: Property, analysis) -> str:
+    """Build a structured prompt for Gemini with all property and financial data."""
+    cf = analysis.cash_flow
+    a = analysis.assumptions
+
+    return f"""You are a real estate investment analyst for RentIQ, a property investment platform.
+Explain the investment potential of this property to a user in clear, plain English.
+
+=== PROPERTY DETAILS ===
+Address: {property_obj.address}, {property_obj.city}, {property_obj.state} {property_obj.zip_code or ''}
+Price: ${float(property_obj.price):,.0f}
+Size: {property_obj.size_sqft:,} m²
+Bedrooms: {property_obj.bedrooms}
+Bathrooms: {property_obj.bathrooms}
+Property Type: {property_obj.property_type}
+Year Built: {property_obj.year_built or 'Unknown'}
+Estimated Monthly Rent: ${float(property_obj.estimated_rent):,.0f}
+
+=== SCORES ===
+Profitability Score: {property_obj.profitability_score:.1f}/100
+  (Factors: gross rental yield, price per m², property age, property type preference, and market/macro conditions)
+Deal Score: {analysis.deal_score:.0f}/100
+  (Based on cap rate contribution up to 100 pts: 4% cap -> 40 pts, 8%+ -> 100 pts; plus cash-on-cash ROI contribution up to 40 pts: 5% -> 20 pts, 15%+ -> 40 pts)
+
+=== KEY FINANCIAL METRICS ===
+Cap Rate: {analysis.cap_rate * 100:.2f}%
+Gross Yield: {analysis.gross_yield * 100:.2f}%
+Net Yield: {analysis.net_yield * 100:.2f}%
+Cash-on-Cash ROI: {analysis.cash_on_cash_roi * 100:.2f}%
+Break-Even: {f'{analysis.break_even_years:.1f} years' if analysis.break_even_years else 'N/A (negative cash flow)'}
+{a.analysis_horizon_years}-Year Total ROI: {analysis.total_roi_horizon * 100:.1f}%
+IRR: {f'{analysis.irr * 100:.2f}%' if analysis.irr else 'N/A'}
+
+=== ANNUAL CASH FLOW BREAKDOWN ===
+Gross Rent: ${float(cf.gross_rent_annual):,.0f}
+Vacancy Loss: -${float(cf.vacancy_loss_annual):,.0f}
+Effective Gross Income: ${float(cf.effective_gross_income_annual):,.0f}
+Operating Expenses: -${float(cf.operating_expenses_annual):,.0f}
+Net Operating Income (NOI): ${float(cf.noi_annual):,.0f}
+Debt Service: -${float(cf.debt_service_annual):,.0f}
+Annual Cash Flow: ${float(cf.cash_flow_annual):,.0f}
+
+=== ASSUMPTIONS USED ===
+Down Payment: {float(a.down_payment_pct) * 100:.1f}%
+Interest Rate: {float(a.interest_rate_annual) * 100:.2f}%
+Loan Term: {a.loan_term_years} years
+Vacancy Rate: {float(a.vacancy_rate) * 100:.1f}%
+Appreciation Rate: {float(a.appreciation_rate_annual) * 100:.1f}%/year
+Property Tax: {float(a.property_tax_pct) * 100:.1f}% of value/year
+Insurance: {float(a.insurance_pct) * 100:.1f}% of value/year
+Maintenance: {float(a.maintenance_pct_rent) * 100:.0f}% of rent
+Management: {float(a.management_pct_rent) * 100:.0f}% of rent
+Analysis Horizon: {a.analysis_horizon_years} years
+
+=== INSTRUCTIONS ===
+Write 2-4 concise paragraphs that:
+1. Explain what the profitability score of {property_obj.profitability_score:.1f} means and what likely drove it higher or lower.
+2. Interpret the deal score and key financial metrics (cap rate, cash-on-cash ROI, cash flow) in everyday terms.
+3. Highlight the main strengths and risks of this investment.
+4. Give a brief overall assessment of whether this looks like a strong, moderate, or weak investment opportunity.
+
+Use specific numbers from the data. Do not use markdown formatting. Write in a conversational but professional tone."""
+
+
+@router.get("/{property_id}/explain")
+async def get_property_explanation(
+    property_id: int,
+    down_payment_pct: Optional[float] = Query(
+        None, ge=0.0, le=1.0, description="Down payment as fraction of price (e.g. 0.2)"
+    ),
+    interest_rate_annual: Optional[float] = Query(
+        None, ge=0.0, le=1.0, description="Annual interest rate (e.g. 0.06)"
+    ),
+    vacancy_rate: Optional[float] = Query(
+        None, ge=0.0, le=0.5, description="Expected vacancy fraction"
+    ),
+    db: Session = Depends(get_db),
+):
+    """
+    Generate an AI-powered explanation of the property's profitability score
+    and investment metrics using Google Gemini.
+    """
+    if not settings.GEMINI_API_KEY:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="AI explanation service is not configured (missing GEMINI_API_KEY)",
+        )
+
+    property_obj = db.query(Property).filter(Property.id == property_id).first()
+    if not property_obj:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Property not found",
+        )
+
+    assumptions = InvestmentAssumptions()
+    if down_payment_pct is not None:
+        assumptions.down_payment_pct = InvestmentAssumptions.down_payment_pct.__class__(str(down_payment_pct))
+    if interest_rate_annual is not None:
+        assumptions.interest_rate_annual = InvestmentAssumptions.interest_rate_annual.__class__(str(interest_rate_annual))
+    if vacancy_rate is not None:
+        assumptions.vacancy_rate = InvestmentAssumptions.vacancy_rate.__class__(str(vacancy_rate))
+
+    analysis = analyze_investment(property_obj, assumptions=assumptions)
+    if analysis is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Cannot generate explanation for this property (missing data)",
+        )
+
+    prompt = _build_explanation_prompt(property_obj, analysis)
+
+    try:
+        genai.configure(api_key=settings.GEMINI_API_KEY)
+        model = genai.GenerativeModel("gemini-2.5-flash")
+        response = model.generate_content(prompt)
+        explanation = response.text
+    except Exception as exc:
+        logger.error("Gemini API call failed: %s", exc)
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="Failed to generate AI explanation. Please try again later.",
+        )
+
+    return {"property_id": property_id, "explanation": explanation}

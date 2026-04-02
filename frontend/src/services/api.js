@@ -54,6 +54,7 @@ export const propertiesAPI = {
   search: (params) => api.get('/properties', { params }),
   getById: (id) => api.get(`/properties/${id}`),
   getAnalysis: (id, params) => api.get(`/properties/${id}/analysis`, { params }),
+  getExplanation: (id, params) => api.get(`/properties/${id}/explain`, { params }),
 };
 
 // User Profile API

@@ -42,6 +42,9 @@ class Settings(BaseSettings):
     # Maps
     GOOGLE_MAPS_API_KEY: Optional[str] = None
     
+    # Gemini AI
+    GEMINI_API_KEY: Optional[str] = None
+    
     # CORS - reads from ALLOWED_ORIGINS env var (JSON array) in production;
     # falls back to localhost origins for local dev
     ALLOWED_ORIGINS: list = get_allowed_origins()
