@@ -70,4 +70,10 @@ export const favoritesAPI = {
   remove: (favoriteId) => api.delete(`/favorites/${favoriteId}`),
 };
 
+// Chat API
+export const chatAPI = {
+  send: (message, history = [], propertyId = null) =>
+    api.post('/chat', { message, history, property_id: propertyId }),
+};
+
 export default api;
