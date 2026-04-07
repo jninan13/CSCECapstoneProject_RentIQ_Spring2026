@@ -55,18 +55,18 @@ def _build_property_context(prop: Property) -> str:
         f"Bedrooms: {prop.bedrooms} | Bathrooms: {prop.bathrooms}",
         f"Type: {prop.property_type}",
         f"Year Built: {prop.year_built or 'Unknown'}",
-        f"Estimated Monthly Rent: ${float(prop.estimated_rent):,.0f}" if prop.estimated_rent else "Estimated Monthly Rent: N/A",
+        f"Estimated Monthly Rent: ${float(prop.estimated_rent):,.0f}" if prop.estimated_rent is not None else "Estimated Monthly Rent: N/A",
         f"Profitability Score: {prop.profitability_score:.1f}/100",
     ]
     if analysis:
         lines.extend([
-            f"Cap Rate: {analysis.cap_rate * 100:.2f}%" if analysis.cap_rate else "Cap Rate: N/A",
-            f"Gross Yield: {analysis.gross_yield * 100:.2f}%" if analysis.gross_yield else "Gross Yield: N/A",
-            f"Net Yield: {analysis.net_yield * 100:.2f}%" if analysis.net_yield else "Net Yield: N/A",
-            f"Cash-on-Cash ROI: {analysis.cash_on_cash_roi * 100:.2f}%" if analysis.cash_on_cash_roi else "Cash-on-Cash ROI: N/A",
-            f"Deal Score: {analysis.deal_score:.0f}/100" if analysis.deal_score else "Deal Score: N/A",
+            f"Cap Rate: {analysis.cap_rate * 100:.2f}%" if analysis.cap_rate is not None else "Cap Rate: N/A",
+            f"Gross Yield: {analysis.gross_yield * 100:.2f}%" if analysis.gross_yield is not None else "Gross Yield: N/A",
+            f"Net Yield: {analysis.net_yield * 100:.2f}%" if analysis.net_yield is not None else "Net Yield: N/A",
+            f"Cash-on-Cash ROI: {analysis.cash_on_cash_roi * 100:.2f}%" if analysis.cash_on_cash_roi is not None else "Cash-on-Cash ROI: N/A",
+            f"Deal Score: {analysis.deal_score:.0f}/100" if analysis.deal_score is not None else "Deal Score: N/A",
             f"Annual Cash Flow: ${float(analysis.cash_flow.cash_flow_annual):,.0f}",
-            f"Break-Even: {analysis.break_even_years:.1f} years" if analysis.break_even_years else "Break-Even: N/A (negative cash flow)",
+            f"Break-Even: {analysis.break_even_years:.1f} years" if analysis.break_even_years is not None else "Break-Even: N/A (negative cash flow)",
         ])
     return "\n".join(lines)
 
