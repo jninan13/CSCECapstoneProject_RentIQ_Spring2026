@@ -91,11 +91,12 @@ function ChatBot() {
     if (!trimmed || isLoading) return;
 
     const userMessage = { role: 'user', content: trimmed };
-    setMessages((prev) => [...prev, userMessage]);
+    const nextMessages = [...messages, userMessage];
+    setMessages(nextMessages);
     setInputValue('');
     setIsLoading(true);
 
-    const history = messages
+    const history = nextMessages
       .filter((m) => m.role === 'user' || m.role === 'assistant')
       .slice(-10)
       .map(({ role, content }) => ({ role, content }));
