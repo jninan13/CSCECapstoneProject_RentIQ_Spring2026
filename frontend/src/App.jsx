@@ -29,6 +29,9 @@ import FavoritesList from './components/Favorites/FavoritesList';
 // Profile
 import ProfileForm from './components/Profile/ProfileForm';
 
+// Chat
+import ChatBot from './components/Chat/ChatBot';
+
 function App() {
   return (
     <ThemeProvider>
@@ -36,6 +39,7 @@ function App() {
         <Router>
           <div className="min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors duration-300">
             <Navbar />
+            <ChatBot />
 
             <Routes>
               {/* Public routes */}

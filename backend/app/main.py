@@ -7,7 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from mangum import Mangum
 
 from .config import settings
-from .api.v1 import auth_router, properties_router, users_router, favorites_router
+from .api.v1 import auth_router, properties_router, users_router, favorites_router, chat_router
 from .database import Base, engine
 
 # Create database tables
@@ -36,6 +36,7 @@ app.include_router(auth_router, prefix="/api")
 app.include_router(properties_router, prefix="/api")
 app.include_router(users_router, prefix="/api")
 app.include_router(favorites_router, prefix="/api")
+app.include_router(chat_router, prefix="/api")
 
 
 @app.get("/")

@@ -16,6 +16,7 @@ def get_allowed_origins():
     return [
         "http://localhost:3000",
         "http://localhost:5173",  # Vite default
+        "http://localhost:4173",  # Vite preview
     ]
 
 
@@ -41,8 +42,11 @@ class Settings(BaseSettings):
     # Maps
     GOOGLE_MAPS_API_KEY: Optional[str] = None
     
-    # CORS - reads from ALLOWED_ORIGINS env var in production,
-    # falls back to localhost for local dev
+    # Gemini AI
+    GEMINI_API_KEY: Optional[str] = None
+    
+    # CORS - reads from ALLOWED_ORIGINS env var (JSON array) in production;
+    # falls back to localhost origins for local dev
     ALLOWED_ORIGINS: list = get_allowed_origins()
     
     class Config:

@@ -54,6 +54,7 @@ export const propertiesAPI = {
   search: (params) => api.get('/properties', { params }),
   getById: (id) => api.get(`/properties/${id}`),
   getAnalysis: (id, params) => api.get(`/properties/${id}/analysis`, { params }),
+  getExplanation: (id, params) => api.get(`/properties/${id}/explain`, { params }),
 };
 
 // User Profile API
@@ -67,6 +68,12 @@ export const favoritesAPI = {
   getAll: () => api.get('/favorites'),
   add: (propertyId) => api.post('/favorites', { property_id: propertyId }),
   remove: (favoriteId) => api.delete(`/favorites/${favoriteId}`),
+};
+
+// Chat API
+export const chatAPI = {
+  send: (message, history = [], propertyId = null) =>
+    api.post('/chat', { message, history, property_id: propertyId }),
 };
 
 export default api;
