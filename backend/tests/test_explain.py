@@ -242,29 +242,29 @@ def test_explain_gemini_network_timeout(mock_genai, client, db):
 
 def test_explain_invalid_down_payment_too_high(client, db):
     """Rejects down_payment_pct > 1.0."""
-    _create_test_property(db)
-    response = client.get("/api/properties/1/explain?down_payment_pct=1.5")
+    prop = _create_test_property(db)
+    response = client.get(f"/api/properties/{prop.id}/explain?down_payment_pct=1.5")
     assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
 
 
 def test_explain_invalid_down_payment_negative(client, db):
     """Rejects negative down_payment_pct."""
-    _create_test_property(db)
-    response = client.get("/api/properties/1/explain?down_payment_pct=-0.1")
+    prop = _create_test_property(db)
+    response = client.get(f"/api/properties/{prop.id}/explain?down_payment_pct=-0.1")
     assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
 
 
 def test_explain_invalid_vacancy_rate_too_high(client, db):
     """Rejects vacancy_rate > 0.5."""
-    _create_test_property(db)
-    response = client.get("/api/properties/1/explain?vacancy_rate=0.9")
+    prop = _create_test_property(db)
+    response = client.get(f"/api/properties/{prop.id}/explain?vacancy_rate=0.9")
     assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
 
 
 def test_explain_invalid_interest_rate_too_high(client, db):
     """Rejects interest_rate_annual > 1.0."""
-    _create_test_property(db)
-    response = client.get("/api/properties/1/explain?interest_rate_annual=2.0")
+    prop = _create_test_property(db)
+    response = client.get(f"/api/properties/{prop.id}/explain?interest_rate_annual=2.0")
     assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
 
 
