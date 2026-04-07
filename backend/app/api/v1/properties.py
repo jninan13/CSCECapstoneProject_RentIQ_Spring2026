@@ -409,13 +409,13 @@ Deal Score: {analysis.deal_score:.0f}/100
   (Based on cap rate contribution up to 100 pts: 4% cap -> 40 pts, 8%+ -> 100 pts; plus cash-on-cash ROI contribution up to 40 pts: 5% -> 20 pts, 15%+ -> 40 pts)
 
 === KEY FINANCIAL METRICS ===
-Cap Rate: {analysis.cap_rate * 100:.2f}%
+Cap Rate: {f'{analysis.cap_rate * 100:.2f}%' if analysis.cap_rate is not None else 'N/A'}
 Gross Yield: {analysis.gross_yield * 100:.2f}%
 Net Yield: {analysis.net_yield * 100:.2f}%
-Cash-on-Cash ROI: {analysis.cash_on_cash_roi * 100:.2f}%
-Break-Even: {f'{analysis.break_even_years:.1f} years' if analysis.break_even_years else 'N/A (negative cash flow)'}
+Cash-on-Cash ROI: {f'{analysis.cash_on_cash_roi * 100:.2f}%' if analysis.cash_on_cash_roi is not None else 'N/A'}
+Break-Even: {f'{analysis.break_even_years:.1f} years' if analysis.break_even_years is not None else 'N/A (negative cash flow)'}
 {a.analysis_horizon_years}-Year Total ROI: {analysis.total_roi_horizon * 100:.1f}%
-IRR: {f'{analysis.irr * 100:.2f}%' if analysis.irr else 'N/A'}
+IRR: {f'{analysis.irr * 100:.2f}%' if analysis.irr is not None else 'N/A'}
 
 === ANNUAL CASH FLOW BREAKDOWN ===
 Gross Rent: ${float(cf.gross_rent_annual):,.0f}
