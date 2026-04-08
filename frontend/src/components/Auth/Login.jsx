@@ -17,7 +17,7 @@ const Login = () => {
     setLoading(true);
     const params = new URLSearchParams({
       client_id: import.meta.env.VITE_GOOGLE_CLIENT_ID,
-      redirect_uri: "http://localhost:8000/api/auth/google/callback",
+      redirect_uri: import.meta.env.VITE_GOOGLE_REDIRECT_URL,
       response_type: "code",
       scope: "openid email profile",
       prompt: "select_account",
