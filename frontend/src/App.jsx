@@ -46,7 +46,7 @@ function App() {
               <Route path="/login" element={<Login />} />
               <Route path="/register" element={<Register />} />
               <Route path="/about" element={<About />} />
-
+              <Route path="/oauth-success" element={<OAuthSuccess />} />
 
               {/* Protected routes */}
               <Route
