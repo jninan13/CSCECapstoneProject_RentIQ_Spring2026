@@ -127,9 +127,14 @@ async def google_callback(code: str, db: Session = Depends(get_db)):
 
     access_token = create_access_token(data={"sub": user.email})
 
-    # redirect back to frontend with token
+    # Redirect to the first allowed frontend origin (works for prod/local without extra env vars).
+    frontend_url = (
+        settings.ALLOWED_ORIGINS[0]
+        if settings.ALLOWED_ORIGINS
+        else "http://localhost:5173"
+    )
     return RedirectResponse(
-        url=f"http://localhost:5173/oauth-success?token={access_token}",
+        url=f"{frontend_url}/oauth-success?token={access_token}",
         status_code=302
     )
 

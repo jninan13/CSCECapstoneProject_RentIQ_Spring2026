@@ -12,12 +12,15 @@ def get_allowed_origins():
     """Read ALLOWED_ORIGINS from env var (JSON list) or use defaults for local dev."""
     env_origins = os.environ.get("ALLOWED_ORIGINS")
     if env_origins:
-        return json.loads(env_origins)
-    return [
+        origins = json.loads(env_origins)
+    else:
+        origins = [
         "http://localhost:3000",
         "http://localhost:5173",  # Vite default
         "http://localhost:4173",  # Vite preview
     ]
+    # Normalize trailing slashes so CORS origin matching is consistent.
+    return [origin.rstrip("/") for origin in origins]
 
 
 class Settings(BaseSettings):
