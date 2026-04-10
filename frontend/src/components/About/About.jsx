@@ -2,82 +2,53 @@ import React from 'react';
 
 function About() {
   return (
-    <div className="max-w-4xl mx-auto px-6 py-12 space-y-8">
-      <div className="card">
-        <h1 className="text-3xl font-bold mb-6 text-gray-800 dark:text-white">
-          About Us
-        </h1>
+    <div className="min-h-screen bg-gray-50 py-12">
+      <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
+        <h1 className="text-3xl font-bold text-gray-900 mb-2">About RentIQ</h1>
+        <p className="text-gray-500 mb-8">Smarter rental property investment decisions.</p>
 
-        <p className="text-gray-600 dark:text-gray-300 mb-4">
-          RentIQ was created to simplify and modernize the way individuals evaluate rental property investments.
-          In today’s market, identifying a strong investment opportunity requires more than just browsing listings,
-          it demands financial modeling, risk analysis, market comparison, and strategic alignment with personal
-          financial constraints. For many aspiring and independent investors, this process can be overwhelming,
-          time-intensive, and difficult to interpret without advanced expertise.
-        </p>
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-8 mb-8">
+          <div className="space-y-4 text-gray-700 leading-relaxed">
+            <p>
+              RentIQ was created to simplify and modernize the way individuals evaluate rental property investments.
+              In today's market, identifying a strong investment opportunity requires more than just browsing listings —
+              it demands financial modeling, risk analysis, market comparison, and strategic alignment with personal
+              financial constraints.
+            </p>
+            <p>
+              Our platform combines data-driven financial modeling with personalized ranking and explainable AI.
+              RentIQ analyzes available property listings, estimates projected investment performance, and evaluates
+              key metrics such as potential return, affordability, and risk exposure. These insights are ranked based
+              on user-specific inputs including budget and investment strategy.
+            </p>
+            <p>
+              By automating complex financial analysis and delivering personalized, interpretable insights, RentIQ
+              transforms rental investment decision-making into a more accessible, scalable, and data-backed process.
+            </p>
+          </div>
+        </div>
 
-        <p className="text-gray-600 dark:text-gray-300 mb-4">
-          Our platform addresses this challenge by combining data-driven financial modeling with personalized ranking
-          and explainable AI. RentIQ analyzes available property listings, estimates projected investment performance,
-          and evaluates key metrics such as potential return, affordability, and risk exposure. These insights are then
-          ranked based on user-specific inputs including credit score, budget, and individual investment strategy.
-          Rather than presenting raw numbers alone, the system provides structured, transparent reasoning behind each
-          recommendation, allowing users to understand not just what to invest in, but also the why.
-        </p>
-
-        <p className="text-gray-600 dark:text-gray-300">
-          By automating complex financial analysis and delivering personalized, interpretable insights, RentIQ transforms
-          rental investment decision-making into a more accessible, scalable, and data-backed process. Our mission is to
-          empower users with the clarity and confidence needed to make informed real estate investment decisions in an
-          increasingly competitive market.
-        </p>
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-8">
+          <h2 className="text-xl font-bold text-gray-900 mb-6">Platform Features</h2>
+          <div className="space-y-4">
+            {[
+              ['AI-Generated Investment Ranking', 'Each property receives a personalized ranking score along with a clear explanation of how the score was calculated.'],
+              ['Favorites Dashboard', 'Save properties to easily compare and revisit top opportunities.'],
+              ['Detailed Property Insights', 'View comprehensive financial projections, metrics, and easy access to listing details in one centralized view.'],
+              ['Customized Search', 'Filter and rank listings based on your budget and investment preferences.'],
+              ['User Profile Management', 'Create and manage a profile that powers smarter, personalized recommendations.'],
+            ].map(([title, desc]) => (
+              <div key={title} className="flex items-start gap-3">
+                <div className="mt-1.5 w-2 h-2 rounded-full bg-blue-600 shrink-0" />
+                <div>
+                  <span className="font-semibold text-gray-900">{title}</span>
+                  <span className="text-gray-600 ml-1">— {desc}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
-
-
-      {/* Features Card */}
-      <div className="card">
-        <h2 className="text-2xl font-bold mb-6 text-gray-800 dark:text-white">
-          Platform Features
-        </h2>
-
-        <ul className="space-y-4 text-gray-600 dark:text-gray-300">
-          <li>
-            <span className="font-semibold text-gray-800 dark:text-gray-200">
-              AI-Generated Investment Ranking:
-            </span>{' '}
-            Each property receives a personalized ranking score along with a clear explanation of how the score was calculated.
-          </li>
-
-          <li>
-            <span className="font-semibold text-gray-800 dark:text-gray-200">
-              Favorites Dashboard:
-            </span>{' '}
-            Save properties to easily compare and revisit top opportunities.
-          </li>
-
-          <li>
-            <span className="font-semibold text-gray-800 dark:text-gray-200">
-              Detailed Property Insights:
-            </span>{' '}
-            View comprehensive financial projections, metrics, and easy access to listing details in one centralized view.
-          </li>
-
-          <li>
-            <span className="font-semibold text-gray-800 dark:text-gray-200">
-              Customized Search Capabilities:
-            </span>{' '}
-            Filter and rank listings based on your budget, credit score, and investment preferences.
-          </li>
-
-          <li>
-            <span className="font-semibold text-gray-800 dark:text-gray-200">
-              User Profile Management:
-            </span>{' '}
-            Create and manage a profile that powers smarter, personalized investment recommendations.
-          </li>
-        </ul>
-      </div>
-
     </div>
   );
 }

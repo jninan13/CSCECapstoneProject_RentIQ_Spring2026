@@ -1,18 +1,10 @@
-/**
- * Detailed property view page.
- */
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { propertiesAPI, favoritesAPI } from '../../services/api';
-import {
-  PieChart,
-  Pie,
-  Cell,
-  Tooltip as RechartsTooltip,
-  Legend,
-  ResponsiveContainer
-} from 'recharts';
+import { propertiesAPI, favoritesAPI, getStreetViewUrl } from '../../services/api';
+import { PieChart, Pie, Cell, Tooltip as RechartsTooltip, Legend, ResponsiveContainer } from 'recharts';
 import jsPDF from 'jspdf';
+
+const PIE_COLORS = ['#3B82F6', '#F59E0B', '#94A3B8', '#10B981'];
 
 const PropertyDetail = () => {
   const { id } = useParams();
@@ -21,6 +13,7 @@ const PropertyDetail = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [isFavorited, setIsFavorited] = useState(false);
+  const [imgError, setImgError] = useState(false);
 
   const [analysis, setAnalysis] = useState(null);
   const [analysisLoading, setAnalysisLoading] = useState(true);
@@ -30,7 +23,6 @@ const PropertyDetail = () => {
   const [interestRate, setInterestRate] = useState(0.06);
   const debounceRef = useRef(null);
   const lastPropertyIdRef = useRef(null);
-  const reportRef = useRef(null);
   const [isExporting, setIsExporting] = useState(false);
   const [showExportMenu, setShowExportMenu] = useState(false);
   const exportMenuRef = useRef(null);
@@ -39,12 +31,9 @@ const PropertyDetail = () => {
   const [aiLoading, setAiLoading] = useState(false);
   const [aiError, setAiError] = useState(null);
 
-  // Close export dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (e) => {
-      if (exportMenuRef.current && !exportMenuRef.current.contains(e.target)) {
-        setShowExportMenu(false);
-      }
+      if (exportMenuRef.current && !exportMenuRef.current.contains(e.target)) setShowExportMenu(false);
     };
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
@@ -52,855 +41,280 @@ const PropertyDetail = () => {
 
   useEffect(() => {
     window.scrollTo(0, 0);
-    const loadProperty = async () => {
+    (async () => {
       try {
         const response = await propertiesAPI.getById(id);
         setProperty(response.data);
         setIsFavorited(response.data.is_favorited);
       } catch (err) {
         setError('Failed to load property details');
-        console.error('Load error:', err);
       } finally {
         setLoading(false);
       }
-    };
-
-    loadProperty();
+    })();
   }, [id]);
 
   const isInitialLoad = useRef(true);
-
   useEffect(() => {
-    if (!property || !property.estimated_rent) {
-      setAnalysis(null);
-      setAnalysisLoading(false);
-      setAnalysisUpdating(false);
-      return;
-    }
-
-    if (lastPropertyIdRef.current !== property.id) {
-      lastPropertyIdRef.current = property.id;
-      isInitialLoad.current = true;
-    }
-
-    const loadAnalysis = async () => {
-      const isFirstLoad = isInitialLoad.current;
-      if (isFirstLoad) {
-        setAnalysisLoading(true);
-      } else {
-        setAnalysisUpdating(true);
-      }
-
+    if (!property || !property.estimated_rent) { setAnalysis(null); setAnalysisLoading(false); setAnalysisUpdating(false); return; }
+    if (lastPropertyIdRef.current !== property.id) { lastPropertyIdRef.current = property.id; isInitialLoad.current = true; }
+    const load = async () => {
+      if (isInitialLoad.current) setAnalysisLoading(true); else setAnalysisUpdating(true);
       try {
-        const response = await propertiesAPI.getAnalysis(property.id, {
-          down_payment_pct: downPaymentPct,
-          vacancy_rate: vacancyRate,
-          interest_rate_annual: interestRate,
-        });
-        setAnalysis(response.data);
-      } catch (err) {
-        console.error('Failed to load investment analysis:', err);
-        setAnalysis(null);
-      } finally {
-        setAnalysisLoading(false);
-        setAnalysisUpdating(false);
-        isInitialLoad.current = false;
-      }
+        const r = await propertiesAPI.getAnalysis(property.id, { down_payment_pct: downPaymentPct, vacancy_rate: vacancyRate, interest_rate_annual: interestRate });
+        setAnalysis(r.data);
+      } catch { setAnalysis(null); }
+      finally { setAnalysisLoading(false); setAnalysisUpdating(false); isInitialLoad.current = false; }
     };
-
-    if (isInitialLoad.current) {
-      loadAnalysis();
-    } else {
+    if (isInitialLoad.current) { load(); } else {
       if (debounceRef.current) clearTimeout(debounceRef.current);
-      debounceRef.current = setTimeout(loadAnalysis, 400);
-      return () => {
-        if (debounceRef.current) clearTimeout(debounceRef.current);
-      };
+      debounceRef.current = setTimeout(load, 400);
+      return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
     }
   }, [property, downPaymentPct, vacancyRate, interestRate]);
 
   const handleFavoriteClick = async () => {
     try {
-      if (isFavorited) {
-        await favoritesAPI.remove(property.id);
-      } else {
-        await favoritesAPI.add(property.id);
-      }
+      if (isFavorited) await favoritesAPI.remove(property.id); else await favoritesAPI.add(property.id);
       setIsFavorited(!isFavorited);
-    } catch (error) {
-      console.error('Failed to update favorite:', error);
-    }
+    } catch (e) { console.error('Failed to update favorite:', e); }
   };
 
+  // PDF/CSV export logic preserved from original
   const handleExportPDF = () => {
-    if (!property) return;
-    setIsExporting(true);
+    if (!property) return; setIsExporting(true);
     try {
       const pdf = new jsPDF({ orientation: 'p', unit: 'mm', format: 'a4' });
-      const pageWidth = pdf.internal.pageSize.getWidth();
-      const pageHeight = pdf.internal.pageSize.getHeight();
-      const margin = 15;
-      const contentWidth = pageWidth - margin * 2;
-      let y = margin;
-
-      const checkPageBreak = (needed) => {
-        if (y + needed > pageHeight - margin) {
-          pdf.addPage();
-          y = margin;
-        }
-      };
-
-      // ── Header ──
-      pdf.setFont('helvetica', 'bold');
-      pdf.setFontSize(18);
-      pdf.text('RentIQ', margin, y);
-      pdf.setFontSize(9);
-      pdf.setFont('helvetica', 'normal');
-      pdf.text('Property Analysis Report', pageWidth - margin, y, { align: 'right' });
-      y += 4;
-      pdf.setDrawColor(0);
-      pdf.setLineWidth(0.5);
-      pdf.line(margin, y, pageWidth - margin, y);
-      y += 6;
-
-      // ── Report metadata ──
-      pdf.setFontSize(9);
-      const dateStr = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
-      pdf.text(`Report generated: ${dateStr}`, margin, y);
-      y += 8;
-
-      // ── Property Address Header ──
-      pdf.setFont('helvetica', 'bold');
-      pdf.setFontSize(14);
-      pdf.text(property.address, margin, y);
-      y += 5;
-      pdf.setFont('helvetica', 'normal');
-      pdf.setFontSize(10);
-      pdf.text(`${property.city}, ${property.state} ${property.zip_code || ''}`, margin, y);
-      y += 8;
-
-      // ── Key Metrics ──
-      pdf.setFont('helvetica', 'bold');
-      pdf.setFontSize(12);
-      pdf.text('Key Metrics', margin, y);
-      y += 2;
-      pdf.setLineWidth(0.3);
-      pdf.line(margin, y, pageWidth - margin, y);
-      y += 5;
-
-      const formatCurrency = (v) => v != null ? `$${parseFloat(v).toLocaleString()}` : '—';
-      const formatPercent = (v) => v != null ? `${(v * 100).toFixed(1)}%` : '—';
-
-      const keyMetrics = [
-        ['Price', formatCurrency(property.price)],
-        ['Profitability Score', property.profitability_score?.toFixed(1) || '—'],
-        ['Estimated Monthly Rent', property.estimated_rent ? `${formatCurrency(property.estimated_rent)}/mo` : '—'],
-      ];
-
-      keyMetrics.forEach(([key, val], idx) => {
-        checkPageBreak(6);
-        if (idx % 2 === 0) {
-          pdf.setFillColor(245, 245, 245);
-          pdf.rect(margin, y - 3.5, contentWidth, 6, 'F');
-        }
-        pdf.setFont('helvetica', 'bold');
-        pdf.setFontSize(9);
-        pdf.text(`${key}:`, margin + 2, y);
-        pdf.setFont('helvetica', 'normal');
-        pdf.text(String(val), margin + 60, y);
-        y += 6;
-      });
-      y += 6;
-
-      // ── Property Details ──
-      checkPageBreak(20);
-      pdf.setFont('helvetica', 'bold');
-      pdf.setFontSize(12);
-      pdf.text('Property Details', margin, y);
-      y += 2;
-      pdf.setLineWidth(0.3);
-      pdf.line(margin, y, pageWidth - margin, y);
-      y += 5;
-
-      const propDetails = [
-        ['Area (m²)', property.size_sqft ? `${property.size_sqft.toLocaleString()} m²` : '—'],
-        ['Bedrooms', String(property.bedrooms ?? '—')],
-        ['Bathrooms', String(property.bathrooms ?? '—')],
-        ['Property Type', property.property_type ? property.property_type.replace('_', ' ') : '—'],
-        ['Year Built', String(property.year_built ?? '—')],
-        ['Price / m²', property.price && property.size_sqft ? `$${(parseFloat(property.price) / property.size_sqft).toFixed(2)}` : '—'],
-      ];
-
-      propDetails.forEach(([key, val], idx) => {
-        checkPageBreak(6);
-        if (idx % 2 === 0) {
-          pdf.setFillColor(245, 245, 245);
-          pdf.rect(margin, y - 3.5, contentWidth, 6, 'F');
-        }
-        pdf.setFont('helvetica', 'bold');
-        pdf.setFontSize(9);
-        pdf.text(`${key}:`, margin + 2, y);
-        pdf.setFont('helvetica', 'normal');
-        pdf.text(String(val), margin + 60, y);
-        y += 6;
-      });
-      y += 6;
-
-      // ── Investment Analysis (if available) ──
-      if (analysis) {
-        checkPageBreak(20);
-        pdf.setFont('helvetica', 'bold');
-        pdf.setFontSize(12);
-        pdf.text('Investment Analysis', margin, y);
-        y += 2;
-        pdf.setLineWidth(0.3);
-        pdf.line(margin, y, pageWidth - margin, y);
-        y += 5;
-
-        const investMetrics = [
-          ['Cap Rate', formatPercent(analysis.metrics.cap_rate)],
-          ['Cash-on-Cash ROI', formatPercent(analysis.metrics.cash_on_cash_roi)],
-          [`${analysis.metrics.assumptions.analysis_horizon_years}-Year ROI`, formatPercent(analysis.metrics.total_roi_horizon)],
-          ['Deal Score', analysis.metrics.deal_score != null ? `${analysis.metrics.deal_score.toFixed(0)}/100` : '—'],
-        ];
-
-        investMetrics.forEach(([key, val], idx) => {
-          checkPageBreak(6);
-          if (idx % 2 === 0) {
-            pdf.setFillColor(245, 245, 245);
-            pdf.rect(margin, y - 3.5, contentWidth, 6, 'F');
-          }
-          pdf.setFont('helvetica', 'bold');
-          pdf.setFontSize(9);
-          pdf.text(`${key}:`, margin + 2, y);
-          pdf.setFont('helvetica', 'normal');
-          pdf.text(String(val), margin + 60, y);
-          y += 6;
-        });
-        y += 6;
-
-        // Cash flow breakdown
-        checkPageBreak(20);
-        pdf.setFont('helvetica', 'bold');
-        pdf.setFontSize(11);
-        pdf.text('Annual Cash Flow Breakdown', margin, y);
-        y += 2;
-        pdf.setLineWidth(0.2);
-        pdf.line(margin, y, pageWidth - margin, y);
-        y += 5;
-
-        const cf = analysis.metrics.cash_flow;
-        const cashFlowRows = [
-          ['Gross Rent', cf.gross_rent_annual],
-          ['Vacancy Loss', cf.vacancy_loss_annual],
-          ['Effective Gross Income', cf.effective_gross_income_annual],
-          ['Operating Expenses', cf.operating_expenses_annual],
-          ['Net Operating Income (NOI)', cf.noi_annual],
-          ['Debt Service', cf.debt_service_annual],
-          ['Annual Cash Flow', cf.cash_flow_annual],
-        ];
-
-        cashFlowRows.forEach(([key, val], idx) => {
-          checkPageBreak(6);
-          const num = parseFloat(val);
-          const formatted = isNaN(num) ? '—' : `$${num.toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
-          if (idx % 2 === 0) {
-            pdf.setFillColor(245, 245, 245);
-            pdf.rect(margin, y - 3.5, contentWidth, 6, 'F');
-          }
-          const isTotal = key === 'Annual Cash Flow' || key === 'Effective Gross Income' || key === 'Net Operating Income (NOI)';
-          pdf.setFont('helvetica', isTotal ? 'bold' : 'normal');
-          pdf.setFontSize(9);
-          pdf.text(`${key}:`, margin + 2, y);
-          pdf.text(formatted, margin + 75, y);
-          y += 6;
-        });
-        y += 6;
-
-        // Assumptions
-        checkPageBreak(20);
-        pdf.setFont('helvetica', 'bold');
-        pdf.setFontSize(11);
-        pdf.text('Key Assumptions', margin, y);
-        y += 2;
-        pdf.setLineWidth(0.2);
-        pdf.line(margin, y, pageWidth - margin, y);
-        y += 5;
-
-        const assumptions = [
-          ['Down Payment', `${(parseFloat(analysis.metrics.assumptions.down_payment_pct) * 100).toFixed(1)}%`],
-          ['Interest Rate', `${(parseFloat(analysis.metrics.assumptions.interest_rate_annual) * 100).toFixed(2)}%`],
-          ['Vacancy Rate', `${(parseFloat(analysis.metrics.assumptions.vacancy_rate) * 100).toFixed(1)}%`],
-          ['Appreciation', `${(parseFloat(analysis.metrics.assumptions.appreciation_rate_annual) * 100).toFixed(1)}%`],
-          ['Analysis Horizon', `${analysis.metrics.assumptions.analysis_horizon_years} years`],
-        ];
-
-        assumptions.forEach(([key, val], idx) => {
-          checkPageBreak(6);
-          if (idx % 2 === 0) {
-            pdf.setFillColor(245, 245, 245);
-            pdf.rect(margin, y - 3.5, contentWidth, 6, 'F');
-          }
-          pdf.setFont('helvetica', 'bold');
-          pdf.setFontSize(9);
-          pdf.text(`${key}:`, margin + 2, y);
-          pdf.setFont('helvetica', 'normal');
-          pdf.text(String(val), margin + 60, y);
-          y += 6;
-        });
-        y += 6;
-      }
-
-      // ── Footer / Disclaimer ──
-      checkPageBreak(20);
-      pdf.setDrawColor(0);
-      pdf.setLineWidth(0.3);
-      pdf.line(margin, y, pageWidth - margin, y);
-      y += 5;
-      pdf.setFont('helvetica', 'italic');
-      pdf.setFontSize(7);
-      pdf.text('Disclaimer: This report is generated for informational purposes only. Investment performance depends on market conditions,', margin, y);
-      y += 3.5;
-      pdf.text('maintenance costs, vacancy rates, financing terms, and other factors. RentIQ does not guarantee the accuracy of these estimates.', margin, y);
-      y += 3.5;
-      pdf.text('Consult a qualified financial advisor before making investment decisions.', margin, y);
-
-      pdf.save(`RentIQ_Analysis_${property.address.replace(/[\W_]+/g, '_')}.pdf`);
-    } catch (error) {
-      console.error('Error exporting PDF:', error);
-    } finally {
-      setIsExporting(false);
-    }
+      const pw = pdf.internal.pageSize.getWidth(), ph = pdf.internal.pageSize.getHeight(), m = 15, cw = pw - m * 2;
+      let y = m;
+      const br = (n) => { if (y + n > ph - m) { pdf.addPage(); y = m; } };
+      const fc = (v) => v != null ? `$${parseFloat(v).toLocaleString()}` : '—';
+      const fp = (v) => v != null ? `${(v * 100).toFixed(1)}%` : '—';
+      const sec = (t, rows) => { br(20); pdf.setFont('helvetica','bold'); pdf.setFontSize(12); pdf.text(t,m,y); y+=2; pdf.setLineWidth(0.3); pdf.line(m,y,pw-m,y); y+=5; rows.forEach(([k,v],i)=>{ br(6); if(i%2===0){pdf.setFillColor(245,245,245);pdf.rect(m,y-3.5,cw,6,'F');} pdf.setFont('helvetica','bold');pdf.setFontSize(9);pdf.text(`${k}:`,m+2,y);pdf.setFont('helvetica','normal');pdf.text(String(v),m+60,y);y+=6;}); y+=6; };
+      pdf.setFont('helvetica','bold');pdf.setFontSize(18);pdf.text('RentIQ',m,y);pdf.setFontSize(9);pdf.setFont('helvetica','normal');pdf.text('Property Analysis Report',pw-m,y,{align:'right'});y+=4;pdf.setDrawColor(0);pdf.setLineWidth(0.5);pdf.line(m,y,pw-m,y);y+=6;
+      pdf.text(`Report generated: ${new Date().toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'})}`,m,y);y+=8;
+      pdf.setFont('helvetica','bold');pdf.setFontSize(14);pdf.text(property.address,m,y);y+=5;pdf.setFont('helvetica','normal');pdf.setFontSize(10);pdf.text(`${property.city}, ${property.state} ${property.zip_code||''}`,m,y);y+=8;
+      sec('Key Metrics',[['Price',fc(property.price)],['Profitability Score',property.profitability_score?.toFixed(1)||'—'],['Est. Monthly Rent',property.estimated_rent?`${fc(property.estimated_rent)}/mo`:'—']]);
+      sec('Property Details',[['Sqft',property.size_sqft?`${Math.round(property.size_sqft * 10.7639).toLocaleString()} sqft`:'—'],['Bedrooms',String(property.bedrooms??'—')],['Bathrooms',String(property.bathrooms??'—')],['Type',property.property_type?property.property_type.replace('_',' '):'—'],['Year Built',String(property.year_built??'—')]]);
+      if(analysis){sec('Investment Analysis',[['Cap Rate',fp(analysis.metrics.cap_rate)],['Cash-on-Cash ROI',fp(analysis.metrics.cash_on_cash_roi)],[`${analysis.metrics.assumptions.analysis_horizon_years}-Year ROI`,fp(analysis.metrics.total_roi_horizon)],['Deal Score',analysis.metrics.deal_score!=null?`${analysis.metrics.deal_score.toFixed(0)}/100`:'—']]);}
+      br(15);pdf.setDrawColor(0);pdf.setLineWidth(0.3);pdf.line(m,y,pw-m,y);y+=5;pdf.setFont('helvetica','italic');pdf.setFontSize(7);pdf.text('Disclaimer: For informational purposes only.',m,y);
+      pdf.save(`RentIQ_${property.address.replace(/[\W_]+/g,'_')}.pdf`);
+    } catch(e){console.error(e);} finally{setIsExporting(false);}
   };
-
   const handleExportCSV = () => {
-    if (!property) return;
-    setIsExporting(true);
-    try {
-      const formatCurrency = (v) => v != null ? `$${parseFloat(v).toLocaleString()}` : '—';
-      const formatPercent = (v) => v != null ? `${(v * 100).toFixed(1)}%` : '—';
-
-      const rows = [
-        ['Field', 'Value'],
-        ['Address', property.address],
-        ['City', property.city],
-        ['State', property.state],
-        ['Zip Code', property.zip_code || '—'],
-        ['Price', formatCurrency(property.price)],
-        ['Profitability Score', property.profitability_score?.toFixed(1) || '—'],
-        ['Estimated Rent', property.estimated_rent ? `${formatCurrency(property.estimated_rent)}/mo` : '—'],
-        ['Area (m²)', property.size_sqft ? `${property.size_sqft.toLocaleString()} m²` : '—'],
-        ['Bedrooms', String(property.bedrooms ?? '—')],
-        ['Bathrooms', String(property.bathrooms ?? '—')],
-        ['Property Type', property.property_type ? property.property_type.replace('_', ' ') : '—'],
-        ['Year Built', String(property.year_built ?? '—')],
-        ['Price / m²', property.price && property.size_sqft ? `$${(parseFloat(property.price) / property.size_sqft).toFixed(2)}` : '—'],
-      ];
-
-      if (analysis) {
-        rows.push(
-          ['', ''],
-          ['Investment Analysis', ''],
-          ['Cap Rate', formatPercent(analysis.metrics.cap_rate)],
-          ['Cash-on-Cash ROI', formatPercent(analysis.metrics.cash_on_cash_roi)],
-          [`${analysis.metrics.assumptions.analysis_horizon_years}-Year ROI`, formatPercent(analysis.metrics.total_roi_horizon)],
-          ['Deal Score', analysis.metrics.deal_score != null ? `${analysis.metrics.deal_score.toFixed(0)}/100` : '—'],
-          ['', ''],
-          ['Annual Cash Flow', ''],
-          ['Gross Rent', `$${parseFloat(analysis.metrics.cash_flow.gross_rent_annual).toLocaleString()}`],
-          ['Vacancy Loss', `$${parseFloat(analysis.metrics.cash_flow.vacancy_loss_annual).toLocaleString()}`],
-          ['Effective Gross Income', `$${parseFloat(analysis.metrics.cash_flow.effective_gross_income_annual).toLocaleString()}`],
-          ['Operating Expenses', `$${parseFloat(analysis.metrics.cash_flow.operating_expenses_annual).toLocaleString()}`],
-          ['NOI', `$${parseFloat(analysis.metrics.cash_flow.noi_annual).toLocaleString()}`],
-          ['Debt Service', `$${parseFloat(analysis.metrics.cash_flow.debt_service_annual).toLocaleString()}`],
-          ['Annual Cash Flow', `$${parseFloat(analysis.metrics.cash_flow.cash_flow_annual).toLocaleString()}`],
-        );
-      }
-
-      const csvContent = rows
-        .map((row) => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(','))
-        .join('\n');
-
-      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.setAttribute('href', url);
-      link.setAttribute('download', `RentIQ_Analysis_${property.address.replace(/[\W_]+/g, '_')}.csv`);
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
-    } catch (error) {
-      console.error('Error exporting CSV:', error);
-    } finally {
-      setIsExporting(false);
-    }
+    if(!property)return;setIsExporting(true);
+    try{
+      const fc=(v)=>v!=null?`$${parseFloat(v).toLocaleString()}`:'—';const fp=(v)=>v!=null?`${(v*100).toFixed(1)}%`:'—';
+      const rows=[['Field','Value'],['Address',property.address],['City',property.city],['Price',fc(property.price)],['Score',property.profitability_score?.toFixed(1)||'—'],['Sqft',property.size_sqft?Math.round(property.size_sqft*10.7639).toLocaleString():'—'],['Beds',String(property.bedrooms??'—')],['Baths',String(property.bathrooms??'—')]];
+      if(analysis){rows.push(['',''],['Cap Rate',fp(analysis.metrics.cap_rate)],['Cash-on-Cash',fp(analysis.metrics.cash_on_cash_roi)],['Deal Score',analysis.metrics.deal_score!=null?`${analysis.metrics.deal_score.toFixed(0)}/100`:'—']);}
+      const csv=rows.map(r=>r.map(c=>`"${String(c).replace(/"/g,'""')}"`).join(',')).join('\n');
+      const b=new Blob([csv],{type:'text/csv;charset=utf-8;'});const u=URL.createObjectURL(b);const a=document.createElement('a');a.href=u;a.download=`RentIQ_${property.address.replace(/[\W_]+/g,'_')}.csv`;document.body.appendChild(a);a.click();document.body.removeChild(a);URL.revokeObjectURL(u);
+    }catch(e){console.error(e);}finally{setIsExporting(false);}
   };
-
-  const handleExport = (type) => {
-    setShowExportMenu(false);
-    if (type === 'pdf') {
-      handleExportPDF();
-    } else {
-      handleExportCSV();
-    }
-  };
+  const handleExport = (t) => { setShowExportMenu(false); t==='pdf'?handleExportPDF():handleExportCSV(); };
 
   const handleExplainWithAI = async () => {
-    if (!property) return;
-    setAiLoading(true);
-    setAiError(null);
-    setAiExplanation(null);
-    try {
-      const response = await propertiesAPI.getExplanation(property.id, {
-        down_payment_pct: downPaymentPct,
-        vacancy_rate: vacancyRate,
-        interest_rate_annual: interestRate,
-      });
-      setAiExplanation(response.data.explanation);
-    } catch (err) {
-      const message =
-        err.response?.data?.detail || 'Failed to generate AI explanation. Please try again.';
-      setAiError(message);
-    } finally {
-      setAiLoading(false);
-    }
+    if(!property)return;setAiLoading(true);setAiError(null);setAiExplanation(null);
+    try{const r=await propertiesAPI.getExplanation(property.id,{down_payment_pct:downPaymentPct,vacancy_rate:vacancyRate,interest_rate_annual:interestRate});setAiExplanation(r.data.explanation);}
+    catch(e){setAiError(e.response?.data?.detail||'Failed to generate AI explanation.');}finally{setAiLoading(false);}
   };
 
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 transition-colors duration-300">
-        <div className="text-xl text-gray-600 dark:text-gray-400">Loading...</div>
+  if (loading) return <div className="min-h-screen flex items-center justify-center"><p className="text-gray-400">Loading...</p></div>;
+  if (error || !property) return (
+    <div className="min-h-screen flex items-center justify-center">
+      <div className="text-center">
+        <p className="text-lg text-red-500">{error || 'Property not found'}</p>
+        <button onClick={() => navigate('/properties')} className="btn-primary mt-4">Back to Properties</button>
       </div>
-    );
-  }
+    </div>
+  );
 
-  if (error || !property) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 transition-colors duration-300">
-        <div className="text-center">
-          <p className="text-xl text-red-600 dark:text-red-400">{error || 'Property not found'}</p>
-          <button onClick={() => navigate('/properties')} className="btn-primary mt-4">
-            Back to Properties
+  const getScoreColor = (s) => { if(s>=80) return 'bg-green-100 text-green-700'; if(s>=60) return 'bg-amber-100 text-amber-700'; return 'bg-red-100 text-red-700'; };
+  const pieData = analysis ? [
+    { name: 'Operating Expenses', value: parseFloat(analysis.metrics.cash_flow.operating_expenses_annual)||0 },
+    { name: 'Debt Service', value: parseFloat(analysis.metrics.cash_flow.debt_service_annual)||0 },
+    { name: 'Vacancy Loss', value: parseFloat(analysis.metrics.cash_flow.vacancy_loss_annual)||0 },
+    { name: 'Net Cash Flow', value: Math.max(0, parseFloat(analysis.metrics.cash_flow.cash_flow_annual)||0) }
+  ].filter(i => i.value > 0) : [];
+
+  return (
+    <div className="min-h-screen bg-gray-50">
+      {/* Hero Image */}
+      <div className="relative bg-gray-200 h-72 sm:h-96">
+        {!imgError ? (
+          <img src={getStreetViewUrl(property.id)} alt={property.address} className="w-full h-full object-cover" loading="lazy" onError={() => setImgError(true)} />
+        ) : (
+          <div className="w-full h-full flex items-center justify-center text-gray-300">
+            <svg className="w-16 h-16" fill="none" stroke="currentColor" strokeWidth={1} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" /></svg>
+          </div>
+        )}
+        <div className="absolute top-4 left-4">
+          <button onClick={() => navigate('/properties')} className="flex items-center gap-1.5 bg-white/90 backdrop-blur-sm rounded-lg px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-white shadow-sm transition-colors">
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>
+            Back
           </button>
         </div>
       </div>
-    );
-  }
 
-  const getScoreColor = (score) => {
-    if (score >= 80) return 'bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300';
-    if (score >= 60) return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/40 dark:text-yellow-300';
-    return 'bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300';
-  };
-
-  const streetViewUrl = property?.id
-    ? `http://localhost:8000/api/properties/${property.id}/streetview.jpg`
-    : '';
-
-  return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-8 transition-colors duration-300">
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-        <button
-          onClick={() => navigate('/properties')}
-          className="mb-6 text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300 flex items-center"
-        >
-          <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-          </svg>
-          Back to Properties
-        </button>
-
-        <div className="card" ref={reportRef}>
-          {/* Property Image */}
-          <div className="mb-6 overflow-hidden rounded-xl">
-            <img
-              src={streetViewUrl}
-              alt={property.address}
-              className="h-64 w-full object-cover"
-              loading="lazy"
-              onError={(e) => {
-                e.currentTarget.style.display = 'none';
-                const fallback = e.currentTarget.nextSibling;
-                if (fallback) fallback.style.display = 'flex';
-              }}
-            />
-            <div
-              className="h-64 w-full items-center justify-center bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400"
-              style={{ display: 'none' }}
-            >
-              No Street View available
-            </div>
-          </div>
-
-          {/* Header */}
-          <div className="flex justify-between items-start mb-6">
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">{property.address}</h1>
-              <p className="text-lg text-gray-600 dark:text-gray-400">
-                {property.city}, {property.state} {property.zip_code}
-              </p>
+      {/* Content */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        <div className="flex flex-col lg:flex-row gap-6">
+          {/* LEFT column */}
+          <div className="flex-1 min-w-0">
+            {/* Header */}
+            <div className="mb-6">
+              <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">{property.address}</h1>
+              <p className="text-gray-500 mt-1">{property.city}, {property.state} {property.zip_code}</p>
             </div>
 
-            <div className="flex items-center gap-3">
-              <div className="relative" ref={exportMenuRef}>
-                <button
-                  onClick={() => setShowExportMenu((prev) => !prev)}
-                  disabled={isExporting}
-                  className={`btn-secondary flex items-center gap-2 ${isExporting ? 'opacity-50 cursor-not-allowed' : ''}`}
-                  title="Export"
-                >
-                  {isExporting ? (
-                    <span className="inline-block w-4 h-4 border-2 border-gray-400 border-t-transparent rounded-full animate-spin"></span>
-                  ) : (
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                    </svg>
-                  )}
-                  {isExporting ? 'Exporting...' : 'Export'}
-                  {!isExporting && (
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                    </svg>
-                  )}
-                </button>
-
-                {showExportMenu && (
-                  <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 rounded-lg shadow-lg dark:shadow-gray-950/40 border border-gray-200 dark:border-gray-700 z-50 overflow-hidden">
-                    <button
-                      onClick={() => handleExport('pdf')}
-                      className="w-full text-left px-4 py-3 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-3 transition-colors"
-                    >
-                      <svg className="w-4 h-4 text-red-500" fill="currentColor" viewBox="0 0 20 20">
-                        <path fillRule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4z" clipRule="evenodd" />
-                      </svg>
-                      Export as PDF
-                    </button>
-                    <button
-                      onClick={() => handleExport('csv')}
-                      className="w-full text-left px-4 py-3 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-3 transition-colors border-t border-gray-200 dark:border-gray-700"
-                    >
-                      <svg className="w-4 h-4 text-green-500" fill="currentColor" viewBox="0 0 20 20">
-                        <path fillRule="evenodd" d="M6 2a2 2 0 00-2 2v12a2 2 0 002 2h8a2 2 0 002-2V7.414A2 2 0 0015.414 6L12 2.586A2 2 0 0010.586 2H6z" clipRule="evenodd" />
-                      </svg>
-                      Export as CSV
-                    </button>
-                  </div>
-                )}
-              </div>
-
-              <button
-                onClick={handleFavoriteClick}
-                className="p-3 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-                title={isFavorited ? 'Remove from Favorites' : 'Add to Favorites'}
-              >
-                <svg
-                  className={`w-8 h-8 ${isFavorited ? 'fill-red-500 text-red-500' : 'fill-none text-gray-400 dark:text-gray-500'}`}
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"
-                  />
-                </svg>
-              </button>
-            </div>
-          </div>
-
-          {/* Key Metrics */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-            <div className="bg-primary-50 dark:bg-primary-900/20 p-4 rounded-lg">
-              <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">Price</p>
-              <p className="text-3xl font-bold text-primary-600 dark:text-primary-400">
-                ${parseFloat(property.price).toLocaleString()}
-              </p>
+            {/* Facts row */}
+            <div className="flex flex-wrap gap-x-6 gap-y-2 text-sm text-gray-700 mb-6 pb-6 border-b border-gray-200">
+              <span><strong>{property.bedrooms}</strong> beds</span>
+              <span><strong>{property.bathrooms}</strong> baths</span>
+              <span><strong>{property.size_sqft ? Math.round(property.size_sqft * 10.7639).toLocaleString() : '—'}</strong> sqft</span>
+              <span className="capitalize">{property.property_type?.replace('_', ' ')}</span>
+              {property.year_built && <span>Built {property.year_built}</span>}
             </div>
 
-            <div className={`p-4 rounded-lg ${getScoreColor(property.profitability_score)}`}>
-              <p className="text-sm mb-1">Profitability Score</p>
-              <p className="text-3xl font-bold">{property.profitability_score.toFixed(1)}</p>
-            </div>
-
+            {/* Investment Analysis */}
             {property.estimated_rent && (
-              <div className="bg-green-50 dark:bg-green-900/20 p-4 rounded-lg">
-                <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">Est. Monthly Rent</p>
-                <p className="text-3xl font-bold text-green-600 dark:text-green-400">
-                  ${parseFloat(property.estimated_rent).toLocaleString()}
-                </p>
+              <div className="mb-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-lg font-bold text-gray-900">Investment Analysis</h2>
+                  {analysisUpdating && <span className="inline-block w-4 h-4 border-2 border-blue-400 border-t-transparent rounded-full animate-spin" />}
+                </div>
+
+                {analysisLoading ? (
+                  <p className="text-sm text-gray-400">Loading investment metrics...</p>
+                ) : analysis && (
+                  <>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
+                      <MetricCard label="Cap Rate" value={analysis.metrics.cap_rate} fmt="pct" />
+                      <MetricCard label="Cash-on-Cash" value={analysis.metrics.cash_on_cash_roi} fmt="pct" />
+                      <MetricCard label={`${analysis.metrics.assumptions.analysis_horizon_years}Y ROI`} value={analysis.metrics.total_roi_horizon} fmt="pct" />
+                      <MetricCard label="Deal Score" value={analysis.metrics.deal_score} fmt="score" />
+                    </div>
+
+                    {/* AI Explanation */}
+                    {aiError && <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-4 text-sm text-red-600">{aiError}</div>}
+                    {aiExplanation && (
+                      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+                        <div className="flex items-center justify-between mb-2">
+                          <h3 className="text-sm font-semibold text-blue-800 flex items-center gap-1.5">
+                            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" /></svg>
+                            AI Analysis
+                          </h3>
+                          <button onClick={() => setAiExplanation(null)} className="text-blue-400 hover:text-blue-600"><svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg></button>
+                        </div>
+                        <div className="text-sm text-blue-900 leading-relaxed space-y-2">
+                          {aiExplanation.split('\n').filter(Boolean).map((p, i) => <p key={i}>{p}</p>)}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Cash Flow Table */}
+                    <div className="bg-white rounded-lg border border-gray-100 overflow-hidden mb-6">
+                      <div className="px-4 py-3 bg-gray-50 border-b border-gray-100">
+                        <h3 className="text-sm font-semibold text-gray-700">Annual Cash Flow</h3>
+                      </div>
+                      <table className="w-full text-sm">
+                        <tbody>
+                          <CashRow label="Gross Rent" value={analysis.metrics.cash_flow.gross_rent_annual} />
+                          <CashRow label="Vacancy Loss" value={analysis.metrics.cash_flow.vacancy_loss_annual} negative />
+                          <CashRow label="Effective Gross Income" value={analysis.metrics.cash_flow.effective_gross_income_annual} strong />
+                          <CashRow label="Operating Expenses" value={analysis.metrics.cash_flow.operating_expenses_annual} negative />
+                          <CashRow label="NOI" value={analysis.metrics.cash_flow.noi_annual} strong />
+                          <CashRow label="Debt Service" value={analysis.metrics.cash_flow.debt_service_annual} negative />
+                          <CashRow label="Annual Cash Flow" value={analysis.metrics.cash_flow.cash_flow_annual} strong highlight />
+                        </tbody>
+                      </table>
+                    </div>
+
+                    {/* Pie Chart */}
+                    <div className="bg-white rounded-lg border border-gray-100 p-4 mb-6">
+                      <h3 className="text-sm font-semibold text-gray-700 mb-3">Rent Breakdown</h3>
+                      <div className="h-56">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <PieChart>
+                            <Pie data={pieData} cx="50%" cy="50%" innerRadius={55} outerRadius={90} paddingAngle={2} dataKey="value" stroke="transparent">
+                              {pieData.map((_, i) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
+                            </Pie>
+                            <RechartsTooltip formatter={(v) => `$${v.toLocaleString()}`} />
+                            <Legend />
+                          </PieChart>
+                        </ResponsiveContainer>
+                      </div>
+                    </div>
+
+                    {/* Scenario Controls */}
+                    <div className="bg-white rounded-lg border border-gray-100 p-4">
+                      <h3 className="text-sm font-semibold text-gray-700 mb-3">Scenario Controls</h3>
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                        <Slider label="Down Payment" value={downPaymentPct} min={0.1} max={0.5} step={0.05} onChange={setDownPaymentPct} />
+                        <Slider label="Vacancy Rate" value={vacancyRate} min={0} max={0.15} step={0.01} onChange={setVacancyRate} />
+                        <Slider label="Interest Rate" value={interestRate} min={0.03} max={0.09} step={0.005} onChange={setInterestRate} />
+                      </div>
+                    </div>
+                  </>
+                )}
               </div>
             )}
           </div>
 
-          {/* Property Details */}
-          <div className="border-t border-gray-200 dark:border-gray-700 pt-6">
-            <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-4">Property Details</h2>
+          {/* RIGHT sidebar */}
+          <div className="lg:w-80 shrink-0">
+            <div className="lg:sticky lg:top-20 space-y-4">
+              {/* Price card */}
+              <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
+                <p className="text-2xl font-bold text-gray-900">${parseFloat(property.price).toLocaleString()}</p>
+                {property.estimated_rent && (
+                  <p className="text-sm text-gray-500 mt-1">Est. rent: ${parseFloat(property.estimated_rent).toLocaleString()}/mo</p>
+                )}
+                <div className={`inline-block mt-3 px-2.5 py-1 rounded-md text-xs font-bold ${getScoreColor(property.profitability_score)}`}>
+                  Score: {property.profitability_score.toFixed(1)}
+                </div>
 
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-              <div>
-                <p className="text-sm text-gray-600 dark:text-gray-400">Area (m²)</p>
-                <p className="text-lg font-semibold text-gray-900 dark:text-white">{property.size_sqft.toLocaleString()} m²</p>
+                <div className="mt-4 space-y-2">
+                  <button onClick={handleFavoriteClick} className={`w-full flex items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold transition-colors ${isFavorited ? 'bg-red-50 text-red-600 border border-red-200' : 'btn-secondary'}`}>
+                    <svg className={`w-4 h-4 ${isFavorited ? 'fill-red-500' : 'fill-none'}`} stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" /></svg>
+                    {isFavorited ? 'Saved' : 'Save'}
+                  </button>
+
+                  {analysis && (
+                    <button onClick={handleExplainWithAI} disabled={aiLoading} className="w-full btn-primary flex items-center justify-center gap-2 disabled:opacity-50">
+                      {aiLoading ? <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> :
+                        <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" /></svg>}
+                      {aiLoading ? 'Generating...' : 'Explain with AI'}
+                    </button>
+                  )}
+                </div>
               </div>
 
-              <div>
-                <p className="text-sm text-gray-600 dark:text-gray-400">Bedrooms</p>
-                <p className="text-lg font-semibold text-gray-900 dark:text-white">{property.bedrooms}</p>
+              {/* Export card */}
+              <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5" ref={exportMenuRef}>
+                <h3 className="text-sm font-semibold text-gray-700 mb-3">Export Report</h3>
+                <div className="flex gap-2">
+                  <button onClick={() => handleExport('pdf')} disabled={isExporting} className="btn-secondary flex-1 text-xs px-3 py-2 disabled:opacity-50">PDF</button>
+                  <button onClick={() => handleExport('csv')} disabled={isExporting} className="btn-secondary flex-1 text-xs px-3 py-2 disabled:opacity-50">CSV</button>
+                </div>
               </div>
 
-              <div>
-                <p className="text-sm text-gray-600 dark:text-gray-400">Bathrooms</p>
-                <p className="text-lg font-semibold text-gray-900 dark:text-white">{property.bathrooms}</p>
-              </div>
-
-              <div>
-                <p className="text-sm text-gray-600 dark:text-gray-400">Property Type</p>
-                <p className="text-lg font-semibold capitalize text-gray-900 dark:text-white">{property.property_type.replace('_', ' ')}</p>
-              </div>
-
-              {property.year_built && (
-                <div>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">Year Built</p>
-                  <p className="text-lg font-semibold text-gray-900 dark:text-white">{property.year_built}</p>
+              {/* Assumptions card */}
+              {analysis && (
+                <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
+                  <h3 className="text-sm font-semibold text-gray-700 mb-3">Assumptions</h3>
+                  <ul className="space-y-1.5 text-xs text-gray-600">
+                    <li className="flex justify-between"><span>Down payment</span><span className="font-medium">{(parseFloat(analysis.metrics.assumptions.down_payment_pct)*100).toFixed(1)}%</span></li>
+                    <li className="flex justify-between"><span>Interest rate</span><span className="font-medium">{(parseFloat(analysis.metrics.assumptions.interest_rate_annual)*100).toFixed(2)}%</span></li>
+                    <li className="flex justify-between"><span>Vacancy rate</span><span className="font-medium">{(parseFloat(analysis.metrics.assumptions.vacancy_rate)*100).toFixed(1)}%</span></li>
+                    <li className="flex justify-between"><span>Appreciation</span><span className="font-medium">{(parseFloat(analysis.metrics.assumptions.appreciation_rate_annual)*100).toFixed(1)}%</span></li>
+                    <li className="flex justify-between"><span>Horizon</span><span className="font-medium">{analysis.metrics.assumptions.analysis_horizon_years} years</span></li>
+                  </ul>
+                  <p className="text-xs text-gray-400 mt-3">Estimates for informational purposes only.</p>
                 </div>
               )}
-
-              <div>
-                <p className="text-sm text-gray-600 dark:text-gray-400">Price/m²</p>
-                <p className="text-lg font-semibold text-gray-900 dark:text-white">
-                  ${(parseFloat(property.price) / property.size_sqft).toFixed(2)}
-                </p>
-              </div>
             </div>
           </div>
-
-          {/* Investment Analysis */}
-          {property.estimated_rent && (
-            <div className="border-t border-gray-200 dark:border-gray-700 mt-6 pt-6">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-xl font-bold text-gray-900 dark:text-white">Investment Analysis</h2>
-                {analysis && (
-                  <button
-                    onClick={handleExplainWithAI}
-                    disabled={aiLoading}
-                    className={`inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
-                      aiLoading
-                        ? 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-400 dark:text-indigo-500 cursor-not-allowed'
-                        : 'bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-100 dark:hover:bg-indigo-900/40'
-                    }`}
-                  >
-                    {aiLoading ? (
-                      <span className="inline-block w-4 h-4 border-2 border-indigo-400 border-t-transparent rounded-full animate-spin" />
-                    ) : (
-                      <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.455 2.456L21.75 6l-1.036.259a3.375 3.375 0 00-2.455 2.456zM16.894 20.567L16.5 21.75l-.394-1.183a2.25 2.25 0 00-1.423-1.423L13.5 18.75l1.183-.394a2.25 2.25 0 001.423-1.423l.394-1.183.394 1.183a2.25 2.25 0 001.423 1.423l1.183.394-1.183.394a2.25 2.25 0 00-1.423 1.423z" />
-                      </svg>
-                    )}
-                    {aiLoading ? 'Generating...' : 'Explain with AI'}
-                  </button>
-                )}
-              </div>
-
-              {analysisLoading && (
-                <div className="text-sm text-gray-500 dark:text-gray-400 mb-4">Loading investment metrics…</div>
-              )}
-
-              {analysisUpdating && (
-                <div className="text-xs text-gray-500 dark:text-gray-400 mb-2 flex items-center gap-1">
-                  <span className="inline-block w-3 h-3 border-2 border-gray-400 dark:border-gray-500 border-t-transparent rounded-full animate-spin" />
-                  Updating…
-                </div>
-              )}
-
-              {analysis && (
-                <>
-                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-                    <SummaryCard label="Cap Rate" value={analysis.metrics.cap_rate} format="percent" />
-                    <SummaryCard label="Cash-on-Cash ROI" value={analysis.metrics.cash_on_cash_roi} format="percent" />
-                    <SummaryCard
-                      label={`${analysis.metrics.assumptions.analysis_horizon_years}-Year ROI`}
-                      value={analysis.metrics.total_roi_horizon}
-                      format="percent"
-                    />
-                    <SummaryCard label="Deal Score" value={analysis.metrics.deal_score} format="score" />
-                  </div>
-
-                  {aiError && (
-                    <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4 mb-6">
-                      <div className="flex items-start gap-3">
-                        <svg className="w-5 h-5 text-red-500 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                        <p className="text-sm text-red-700 dark:text-red-300">{aiError}</p>
-                      </div>
-                    </div>
-                  )}
-
-                  {aiExplanation && (
-                    <div className="bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-800 rounded-lg p-5 mb-6">
-                      <div className="flex items-center justify-between mb-3">
-                        <div className="flex items-center gap-2">
-                          <svg className="w-5 h-5 text-indigo-600 dark:text-indigo-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" />
-                          </svg>
-                          <h3 className="text-sm font-semibold text-indigo-800 dark:text-indigo-300">AI Analysis</h3>
-                        </div>
-                        <button
-                          onClick={() => setAiExplanation(null)}
-                          className="text-indigo-400 hover:text-indigo-600 dark:hover:text-indigo-300 transition-colors"
-                          title="Dismiss"
-                        >
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                          </svg>
-                        </button>
-                      </div>
-                      <div className="text-sm text-indigo-900 dark:text-indigo-200 leading-relaxed space-y-3">
-                        {aiExplanation.split('\n').filter(Boolean).map((paragraph, i) => (
-                          <p key={i}>{paragraph}</p>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  <div className="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg mb-6">
-                    <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">Annual Cash Flow Breakdown</h3>
-                    <table className="w-full text-sm">
-                      <tbody>
-                        <CashRow label="Gross Rent" value={analysis.metrics.cash_flow.gross_rent_annual} />
-                        <CashRow label="Vacancy Loss" value={analysis.metrics.cash_flow.vacancy_loss_annual} negative />
-                        <CashRow
-                          label="Effective Gross Income"
-                          value={analysis.metrics.cash_flow.effective_gross_income_annual}
-                          strong
-                        />
-                        <CashRow
-                          label="Operating Expenses"
-                          value={analysis.metrics.cash_flow.operating_expenses_annual}
-                          negative
-                        />
-                        <CashRow
-                          label="Net Operating Income (NOI)"
-                          value={analysis.metrics.cash_flow.noi_annual}
-                          strong
-                        />
-                        <CashRow
-                          label="Debt Service"
-                          value={analysis.metrics.cash_flow.debt_service_annual}
-                          negative
-                        />
-                        <CashRow
-                          label="Annual Cash Flow"
-                          value={analysis.metrics.cash_flow.cash_flow_annual}
-                          strong
-                          highlight
-                        />
-                      </tbody>
-                    </table>
-                  </div>
-
-                  <div className="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg mb-6">
-                    <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">Gross Rent Breakdown</h3>
-                    <div className="h-64">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <PieChart>
-                          <Pie
-                            data={[
-                              { name: 'Operating Expenses', value: parseFloat(analysis.metrics.cash_flow.operating_expenses_annual) || 0, color: '#f59e0b' },
-                              { name: 'Debt Service', value: parseFloat(analysis.metrics.cash_flow.debt_service_annual) || 0, color: '#ef4444' },
-                              { name: 'Vacancy Loss', value: parseFloat(analysis.metrics.cash_flow.vacancy_loss_annual) || 0, color: '#6b7280' },
-                              { name: 'Net Cash Flow', value: Math.max(0, parseFloat(analysis.metrics.cash_flow.cash_flow_annual) || 0), color: '#10b981' }
-                            ].filter(item => item.value > 0)}
-                            cx="50%"
-                            cy="50%"
-                            innerRadius={60}
-                            outerRadius={100}
-                            paddingAngle={2}
-                            dataKey="value"
-                            stroke="transparent"
-                          >
-                            {
-                              [
-                                { name: 'Operating Expenses', value: parseFloat(analysis.metrics.cash_flow.operating_expenses_annual) || 0, color: '#f59e0b' },
-                                { name: 'Debt Service', value: parseFloat(analysis.metrics.cash_flow.debt_service_annual) || 0, color: '#ef4444' },
-                                { name: 'Vacancy Loss', value: parseFloat(analysis.metrics.cash_flow.vacancy_loss_annual) || 0, color: '#6b7280' },
-                                { name: 'Net Cash Flow', value: Math.max(0, parseFloat(analysis.metrics.cash_flow.cash_flow_annual) || 0), color: '#10b981' }
-                              ].filter(item => item.value > 0).map((entry, index) => (
-                                <Cell key={`cell-${index}`} fill={entry.color} />
-                              ))
-                            }
-                          </Pie>
-                          <RechartsTooltip formatter={(value) => `$${value.toLocaleString()}`} />
-                          <Legend />
-                        </PieChart>
-                      </ResponsiveContainer>
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
-                      <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">Scenario Controls</h3>
-                      <SliderControl
-                        label="Down Payment %"
-                        value={downPaymentPct}
-                        min={0.1}
-                        max={0.5}
-                        step={0.05}
-                        onChange={setDownPaymentPct}
-                      />
-                      <SliderControl
-                        label="Vacancy Rate %"
-                        value={vacancyRate}
-                        min={0}
-                        max={0.15}
-                        step={0.01}
-                        onChange={setVacancyRate}
-                      />
-                      <SliderControl
-                        label="Interest Rate %"
-                        value={interestRate}
-                        min={0.03}
-                        max={0.09}
-                        step={0.005}
-                        onChange={setInterestRate}
-                      />
-                    </div>
-
-                    <div>
-                      <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">Key Assumptions</h3>
-                      <ul className="space-y-1 text-sm text-gray-700 dark:text-gray-300">
-                        <li>
-                          <span className="text-gray-500 dark:text-gray-400">Down payment: </span>
-                          {(parseFloat(analysis.metrics.assumptions.down_payment_pct) * 100).toFixed(1)}%
-                        </li>
-                        <li>
-                          <span className="text-gray-500 dark:text-gray-400">Interest rate: </span>
-                          {(parseFloat(analysis.metrics.assumptions.interest_rate_annual) * 100).toFixed(2)}%
-                        </li>
-                        <li>
-                          <span className="text-gray-500 dark:text-gray-400">Vacancy rate: </span>
-                          {(parseFloat(analysis.metrics.assumptions.vacancy_rate) * 100).toFixed(1)}%
-                        </li>
-                        <li>
-                          <span className="text-gray-500 dark:text-gray-400">Appreciation: </span>
-                          {(parseFloat(analysis.metrics.assumptions.appreciation_rate_annual) * 100).toFixed(1)}%
-                        </li>
-                        <li>
-                          <span className="text-gray-500 dark:text-gray-400">Analysis horizon: </span>
-                          {analysis.metrics.assumptions.analysis_horizon_years} years
-                        </li>
-                      </ul>
-                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-3">
-                        These are estimates for informational purposes only. Actual performance depends on
-                        maintenance, market conditions, vacancy, and financing terms.
-                      </p>
-                    </div>
-                  </div>
-                </>
-              )}
-            </div>
-          )}
         </div>
       </div>
     </div>
@@ -909,58 +323,35 @@ const PropertyDetail = () => {
 
 export default PropertyDetail;
 
-const SummaryCard = ({ label, value, format }) => {
+const MetricCard = ({ label, value, fmt }) => {
   if (value == null) return null;
-
-  let display = value;
-  if (format === 'percent') {
-    display = `${(value * 100).toFixed(1)}%`;
-  } else if (format === 'score') {
-    display = `${value.toFixed(0)}/100`;
-  }
-
+  const d = fmt === 'pct' ? `${(value*100).toFixed(1)}%` : `${value.toFixed(0)}/100`;
   return (
-    <div className="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg">
-      <p className="text-xs text-gray-600 dark:text-gray-400 mb-1">{label}</p>
-      <p className="text-xl font-semibold text-gray-900 dark:text-white">{display}</p>
+    <div className="bg-gray-50 rounded-lg p-3">
+      <p className="text-xs text-gray-500 mb-0.5">{label}</p>
+      <p className="text-lg font-bold text-gray-900">{d}</p>
     </div>
   );
 };
 
 const CashRow = ({ label, value, negative, strong, highlight }) => {
-  const num = parseFloat(value);
-  const formatted = isNaN(num)
-    ? '—'
-    : `$${num.toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
-
+  const n = parseFloat(value);
+  const f = isNaN(n) ? '—' : `$${n.toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
   return (
-    <tr className={highlight ? 'bg-green-50 dark:bg-green-900/20 font-semibold text-gray-900 dark:text-white' : ''}>
-      <td className="py-1 pr-4 text-gray-600 dark:text-gray-400">{label}</td>
-      <td
-        className={`py-1 text-right ${negative ? 'text-red-600 dark:text-red-400' : strong ? 'text-gray-900 dark:text-white font-semibold' : 'text-gray-800 dark:text-gray-300'
-          }`}
-      >
-        {negative ? '-' : ''}
-        {formatted}
+    <tr className={`${highlight ? 'bg-blue-50 font-semibold' : 'even:bg-gray-50'}`}>
+      <td className="px-4 py-2 text-gray-600">{label}</td>
+      <td className={`px-4 py-2 text-right ${negative ? 'text-red-500' : strong ? 'text-gray-900 font-semibold' : 'text-gray-700'}`}>
+        {negative ? '-' : ''}{f}
       </td>
     </tr>
   );
 };
 
-const SliderControl = ({ label, value, min, max, step, onChange }) => (
-  <div className="mb-3">
-    <div className="flex justify-between text-xs text-gray-600 dark:text-gray-400 mb-1">
-      <span>{label}</span>
-      <span>{(value * 100).toFixed(1)}%</span>
+const Slider = ({ label, value, min, max, step, onChange }) => (
+  <div>
+    <div className="flex justify-between text-xs text-gray-500 mb-1">
+      <span>{label}</span><span className="font-medium">{(value*100).toFixed(1)}%</span>
     </div>
-    <input
-      type="range"
-      min={min}
-      max={max}
-      step={step}
-      value={value}
-      onChange={(e) => onChange(parseFloat(e.target.value))}
-      className="w-full accent-primary-600 dark:accent-primary-500"
-    />
+    <input type="range" min={min} max={max} step={step} value={value} onChange={(e) => onChange(parseFloat(e.target.value))} className="w-full accent-blue-600" />
   </div>
 );

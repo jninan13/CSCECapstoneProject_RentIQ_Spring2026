@@ -1,25 +1,18 @@
-/**
- * Property card component for displaying property summary.
- * Shows key metrics and favorite button.
- */
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { favoritesAPI } from '../../services/api';
+import { favoritesAPI, getStreetViewUrl } from '../../services/api';
 
 const PropertyCard = ({ property, onFavoriteChange, onCompareToggle, isCompared }) => {
   const [isFavorited, setIsFavorited] = useState(property.is_favorited);
+  const [imgError, setImgError] = useState(false);
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
   const handleFavoriteClick = async (e) => {
     e.stopPropagation();
     setLoading(true);
-
     try {
       if (isFavorited) {
-        // Find favorite ID (would need to be passed or fetched)
-        // For simplicity, this assumes we can remove by property_id
-        // In production, track favorite_id separately
         await favoritesAPI.remove(property.id);
       } else {
         await favoritesAPI.add(property.id);
@@ -34,138 +27,97 @@ const PropertyCard = ({ property, onFavoriteChange, onCompareToggle, isCompared 
   };
 
   const getScoreColor = (score) => {
-    if (score >= 80) return 'text-green-600 bg-green-100 dark:text-green-400 dark:bg-green-900/40';
-    if (score >= 60) return 'text-yellow-600 bg-yellow-100 dark:text-yellow-400 dark:bg-yellow-900/40';
-    return 'text-red-600 bg-red-100 dark:text-red-400 dark:bg-red-900/40';
+    if (score >= 80) return 'bg-green-100 text-green-700';
+    if (score >= 60) return 'bg-amber-100 text-amber-700';
+    return 'bg-red-100 text-red-700';
   };
 
   return (
     <div
-      className="card hover:shadow-lg transition-shadow cursor-pointer"
+      className="card cursor-pointer hover:shadow-md transition-shadow duration-200 group"
       onClick={() => navigate(`/properties/${property.id}`)}
     >
-      <div className="flex justify-between items-start mb-4">
-        <div className="flex-1">
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-white">{property.address}</h3>
-          <p className="text-sm text-gray-600 dark:text-gray-400">
-            {property.city}, {property.state} {property.zip_code}
-          </p>
-        </div>
+      {/* Image */}
+      <div className="relative aspect-[4/3] bg-gray-100">
+        {!imgError ? (
+          <img
+            src={getStreetViewUrl(property.id)}
+            alt={property.address}
+            className="w-full h-full object-cover"
+            loading="lazy"
+            onError={() => setImgError(true)}
+          />
+        ) : (
+          <div className="w-full h-full flex items-center justify-center text-gray-300">
+            <svg className="w-12 h-12" fill="none" stroke="currentColor" strokeWidth={1} viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+            </svg>
+          </div>
+        )}
 
+        {/* Favorite heart overlay */}
         <button
           onClick={handleFavoriteClick}
           disabled={loading}
-          className="ml-4 p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+          className="absolute top-2.5 right-2.5 p-1.5 rounded-full bg-white/80 backdrop-blur-sm hover:bg-white transition-colors shadow-sm"
         >
           <svg
-            className={`w-6 h-6 ${isFavorited ? 'fill-red-500 text-red-500' : 'fill-none text-gray-400 dark:text-gray-500'}`}
+            className={`w-5 h-5 ${isFavorited ? 'fill-red-500 text-red-500' : 'fill-none text-gray-600'}`}
             stroke="currentColor"
+            strokeWidth={2}
             viewBox="0 0 24 24"
           >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"
-            />
+            <path strokeLinecap="round" strokeLinejoin="round" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
           </svg>
         </button>
-      </div>
 
-      <div className="grid grid-cols-2 gap-4 mb-4">
-        <div>
-          <p className="text-2xl font-bold text-primary-600 dark:text-primary-400">
-            ${parseFloat(property.price).toLocaleString()}
-          </p>
-          <p className="text-sm text-gray-600 dark:text-gray-400">Price</p>
-        </div>
-
-        <div className="space-y-1 text-right">
-          <p
-            className={`text-2xl font-bold px-3 py-1 rounded-lg inline-block ${getScoreColor(
-              property.profitability_score
-            )}`}
-          >
-            {property.profitability_score.toFixed(1)}
-          </p>
-          <p className="text-xs text-gray-600 dark:text-gray-400">Profitability Score</p>
+        {/* Score badge */}
+        <div className={`absolute top-2.5 left-2.5 px-2 py-0.5 rounded-md text-xs font-bold ${getScoreColor(property.profitability_score)}`}>
+          {property.profitability_score.toFixed(0)}
         </div>
       </div>
 
-      {/* Investment summary */}
-      <div className="flex flex-wrap gap-4 text-xs text-gray-700 dark:text-gray-300 mb-3">
-        {property.estimated_rent && (
-          <div>
-            <p className="text-gray-500 dark:text-gray-400">Est. Rent</p>
-            <p className="font-semibold text-gray-900 dark:text-white">
-              ${parseFloat(property.estimated_rent).toLocaleString()}/mo
-            </p>
+      {/* Info */}
+      <div className="p-4">
+        <p className="text-lg font-bold text-gray-900">
+          ${parseFloat(property.price).toLocaleString()}
+        </p>
+        <p className="text-sm text-gray-500 mt-0.5">
+          <span className="font-medium text-gray-700">{property.bedrooms}</span> bds
+          <span className="mx-1 text-gray-300">|</span>
+          <span className="font-medium text-gray-700">{property.bathrooms}</span> ba
+          <span className="mx-1 text-gray-300">|</span>
+          <span className="font-medium text-gray-700">{property.size_sqft ? Math.round(property.size_sqft * 10.7639).toLocaleString() : '—'}</span> sqft
+        </p>
+        <p className="text-sm text-gray-500 mt-1 truncate">
+          {property.address}, {property.city}, {property.state} {property.zip_code}
+        </p>
+
+        {/* Compare + metrics row */}
+        <div className="flex items-center justify-between mt-3 pt-3 border-t border-gray-100">
+          <div className="flex gap-3 text-xs text-gray-500">
+            {property.estimated_rent && (
+              <span>Rent: <span className="font-medium text-gray-700">${parseFloat(property.estimated_rent).toLocaleString()}/mo</span></span>
+            )}
+            {property.cap_rate != null && (
+              <span>Cap: <span className="font-medium text-gray-700">{(property.cap_rate * 100).toFixed(1)}%</span></span>
+            )}
           </div>
-        )}
-        {property.cap_rate != null && (
-          <div>
-            <p className="text-gray-500 dark:text-gray-400">Cap Rate</p>
-            <p className="font-semibold text-gray-900 dark:text-white">
-              {(property.cap_rate * 100).toFixed(1)}%
-            </p>
-          </div>
-        )}
-        {property.cash_on_cash_roi != null && (
-          <div>
-            <p className="text-gray-500 dark:text-gray-400">Cash-on-Cash</p>
-            <p className="font-semibold text-gray-900 dark:text-white">
-              {(property.cash_on_cash_roi * 100).toFixed(1)}%
-            </p>
-          </div>
-        )}
-        {property.deal_score != null && (
-          <div>
-            <p className="text-gray-500 dark:text-gray-400">Deal Score</p>
-            <p className="font-semibold text-gray-900 dark:text-white">
-              {property.deal_score.toFixed(0)}/100
-            </p>
-          </div>
-        )}
-      </div>
 
-      <div className="flex space-x-6 text-sm text-gray-700 dark:text-gray-300">
-        <div className="flex items-center">
-          <svg className="w-5 h-5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
-          </svg>
-          {property.size_sqft.toLocaleString()} m²
-        </div>
-
-        <div className="flex items-center">
-          <svg className="w-5 h-5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
-          </svg>
-          {property.bedrooms} bed
-        </div>
-
-        <div className="flex items-center">
-          <svg className="w-5 h-5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
-          </svg>
-          {property.bathrooms} bath
+          {onCompareToggle && (
+            <button
+              onClick={(e) => { e.stopPropagation(); onCompareToggle(property); }}
+              className={`text-xs px-3 py-1 rounded-md font-medium transition-colors ${
+                isCompared
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+              }`}
+            >
+              {isCompared ? 'Selected' : 'Compare'}
+            </button>
+          )}
         </div>
       </div>
-
-      <div className="mt-4 flex gap-2">
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            onCompareToggle(property);
-          }}
-          className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${isCompared
-              ? 'bg-blue-600 dark:bg-blue-500 text-white'
-              : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600'
-            }`}
-        >
-          {isCompared ? 'Selected for Compare' : 'Compare'}
-        </button>
-      </div>
-
     </div>
   );
 };
