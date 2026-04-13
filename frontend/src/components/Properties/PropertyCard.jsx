@@ -6,7 +6,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { favoritesAPI } from '../../services/api';
 
-const PropertyCard = ({ property, onFavoriteChange, onCompareToggle, isCompared }) => {
+const PropertyCard = ({ property, currentPage, onFavoriteChange, onCompareToggle, isCompared }) => {
   const [isFavorited, setIsFavorited] = useState(property.is_favorited);
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
@@ -42,7 +42,7 @@ const PropertyCard = ({ property, onFavoriteChange, onCompareToggle, isCompared 
   return (
     <div
       className="card hover:shadow-lg transition-shadow cursor-pointer"
-      onClick={() => navigate(`/properties/${property.id}`)}
+      onClick={() => navigate(`/properties/${property.id}?page=${currentPage}`)}
     >
       <div className="flex justify-between items-start mb-4">
         <div className="flex-1">

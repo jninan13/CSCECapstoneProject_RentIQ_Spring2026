@@ -2,7 +2,7 @@
  * Detailed property view page.
  */
 import React, { useState, useEffect, useRef } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { propertiesAPI, favoritesAPI } from '../../services/api';
 import {
   PieChart,
@@ -21,6 +21,8 @@ const PropertyDetail = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [isFavorited, setIsFavorited] = useState(false);
+  const [searchParams] = useSearchParams();
+  const fromPage = searchParams.get('page') || '1';
 
   const [analysis, setAnalysis] = useState(null);
   const [analysisLoading, setAnalysisLoading] = useState(true);
@@ -502,7 +504,7 @@ const PropertyDetail = () => {
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-8 transition-colors duration-300">
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
         <button
-          onClick={() => navigate('/properties')}
+          onClick={() => navigate(`/properties?page=${fromPage}`)}
           className="mb-6 text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300 flex items-center"
         >
           <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">

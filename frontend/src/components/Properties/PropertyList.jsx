@@ -2,7 +2,7 @@
  * Property list page with search and filters.
  */
 import React, { useState, useEffect } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { propertiesAPI } from '../../services/api';
 import PropertyCard from './PropertyCard';
 import SearchFilters from './SearchFilters';
@@ -13,10 +13,12 @@ const PropertyList = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [sortOption, setSortOption] = useState('');
-  const [currentPage, setCurrentPage] = useState(1);
-  const [activeFilters, setActiveFilters] = useState({});
   const navigate = useNavigate();
   const location = useLocation();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const initialPage = parseInt(searchParams.get('page') || '1', 10);
+  const [currentPage, setCurrentPage] = useState(initialPage);
+  const [activeFilters, setActiveFilters] = useState({});
   const [compareList, setCompareList] = useState(
     () => location.state?.compareList || []
   );
@@ -24,13 +26,16 @@ const PropertyList = () => {
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const token = params.get("token");
+    const pageFromUrl = parseInt(params.get("page") || "1", 10);
 
     if (token) {
       localStorage.setItem("token", token);
-      window.history.replaceState({}, document.title, "/properties");
+      window.history.replaceState({}, document.title, `/properties?page=${pageFromUrl}`);
     }
 
-    handleSearch({});
+    setCurrentPage(pageFromUrl);
+    setActiveFilters({});
+    fetchProperties({}, pageFromUrl);
   }, []);
 
   const fetchProperties = async (filters, page = 1, selectedSort = sortOption) => {
@@ -78,13 +83,16 @@ const PropertyList = () => {
 
   const handleSearch = async (filters) => {
     setCurrentPage(1);
+    setSearchParams({ page: '1' });
     setActiveFilters(filters);
     await fetchProperties(filters, 1);
   };
 
   const handlePageChange = async (nextPage) => {
     if (nextPage < 1 || loading) return;
+
     setCurrentPage(nextPage);
+    setSearchParams({ page: nextPage.toString() });
     await fetchProperties(activeFilters, nextPage);
   };
 
@@ -107,6 +115,7 @@ const PropertyList = () => {
   const handleSortChange = async (nextSort) => {
     setSortOption(nextSort);
     setCurrentPage(1);
+    setSearchParams({ page: '1' });
     await fetchProperties(activeFilters, 1, nextSort);
   };
 
@@ -187,6 +196,7 @@ const PropertyList = () => {
                 <PropertyCard
                   key={property.id}
                   property={property}
+                  currentPage={currentPage}
                   onFavoriteChange={() => handleSearch({})}
                   onCompareToggle={handleCompareToggle}
                   isCompared={compareList.some((p) => p.id === property.id)}
@@ -194,26 +204,46 @@ const PropertyList = () => {
               ))}
             </div>
 
-            <div className="mt-8 flex items-center justify-between">
-              <button
-                onClick={() => handlePageChange(currentPage - 1)}
-                disabled={currentPage === 1 || loading}
-                className="btn-secondary disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                Previous
-              </button>
+            <div className="mt-8 flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => handlePageChange(1)}
+                  disabled={currentPage === 1 || loading}
+                  className="btn-secondary disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  First
+                </button>
+
+                <button
+                  onClick={() => handlePageChange(currentPage - 1)}
+                  disabled={currentPage === 1 || loading}
+                  className="btn-secondary disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Previous
+                </button>
+              </div>
 
               <span className="text-sm text-gray-600 dark:text-gray-400">
                 Page {currentPage}
               </span>
 
-              <button
-                onClick={() => handlePageChange(currentPage + 1)}
-                disabled={properties.length < PAGE_SIZE || loading}
-                className="btn-secondary disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                Next
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => handlePageChange(currentPage + 1)}
+                  disabled={properties.length < PAGE_SIZE || loading}
+                  className="btn-secondary disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Next
+                </button>
+
+                <button
+                  onClick={() => handlePageChange(currentPage + 1)}
+                  disabled={properties.length < PAGE_SIZE || loading}
+                  className="btn-secondary disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Last
+                </button>
+              </div>
             </div>
           </>
         )}
