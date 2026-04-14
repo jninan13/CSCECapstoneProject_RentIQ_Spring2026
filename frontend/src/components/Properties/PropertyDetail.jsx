@@ -496,8 +496,11 @@ const PropertyDetail = () => {
     return 'bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300';
   };
 
+  const API_BASE_URL =
+    import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+
   const streetViewUrl = property?.id
-    ? `http://localhost:8000/api/properties/${property.id}/streetview.jpg`
+    ? `${API_BASE_URL}/api/properties/${property.id}/streetview.jpg`
     : '';
 
   return (
