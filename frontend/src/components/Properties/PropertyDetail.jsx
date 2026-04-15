@@ -496,13 +496,10 @@ const PropertyDetail = () => {
     return 'bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300';
   };
 
-  const API_BASE_URL =
-    import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
-
   const streetViewUrl = property?.id
-    ? `${API_BASE_URL}/api/properties/${property.id}/streetview.jpg`
+    ? `/api/properties/${property.id}/streetview.jpg`
     : '';
-
+    
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-8 transition-colors duration-300">
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
