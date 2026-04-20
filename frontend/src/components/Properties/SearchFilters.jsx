@@ -28,7 +28,7 @@ const SearchFilters = ({ onSearch }) => {
   const bathsValue = filters.bathrooms ? `${filters.bathrooms}|${filters.bathrooms_match}` : '';
 
   const getCleanedFilters = (nextFilters) => {
-    const cleaned = Object.fromEntries(Object.entries(nextFilters).filter(([_, v]) => v !== ''));
+    const cleaned = Object.fromEntries(Object.entries(nextFilters).filter((entry) => entry[1] !== ''));
     if (!cleaned.bedrooms) delete cleaned.bedrooms_match;
     if (!cleaned.bathrooms) delete cleaned.bathrooms_match;
     return cleaned;
