@@ -32,6 +32,24 @@ from ...core.investment import analyze_investment, InvestmentAssumptions
 
 router = APIRouter(prefix="/properties", tags=["properties"])
 
+def calculate_bearing(lat1: float, lon1: float, lat2: float, lon2: float) -> int:
+    """
+    Calculate compass bearing from point 1 to point 2.
+    Returns heading in degrees from 0-360.
+    """
+    phi1 = math.radians(lat1)
+    phi2 = math.radians(lat2)
+    delta_lon = math.radians(lon2 - lon1)
+
+    x = math.sin(delta_lon) * math.cos(phi2)
+    y = (
+        math.cos(phi1) * math.sin(phi2)
+        - math.sin(phi1) * math.cos(phi2) * math.cos(delta_lon)
+    )
+
+    bearing = math.degrees(math.atan2(x, y))
+    return int((bearing + 360) % 360)
+
 
 def calculate_distance(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
     """
@@ -253,13 +271,28 @@ async def get_property_streetview(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"Street View not available: {metadata.get('status', 'UNKNOWN')}"
             )
+            
+        pano_location = metadata.get("location", {})
+        pano_lat = pano_location.get("lat")
+        pano_lng = pano_location.get("lng")
+
+        computed_heading = heading
+        if pano_lat is not None and pano_lng is not None:
+            computed_heading = calculate_bearing(
+                float(pano_lat),
+                float(pano_lng),
+                float(property_obj.lat),
+                float(property_obj.lng),
+            )
 
         image_params = {
             "size": f"{width}x{height}",
             "location": location,
-            "heading": heading,
+            "heading": computed_heading,
             "pitch": pitch,
             "fov": fov,
+            "radius": 10,
+            "return_error_code": "true",
             "key": settings.GOOGLE_MAPS_API_KEY,
         }
 

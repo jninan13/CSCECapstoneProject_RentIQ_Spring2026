@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { propertiesAPI, favoritesAPI, getStreetViewUrl } from '../../services/api';
 import { PieChart, Pie, Cell, Tooltip as RechartsTooltip, Legend, ResponsiveContainer } from 'recharts';
 import jsPDF from 'jspdf';
@@ -14,6 +14,8 @@ const PropertyDetail = () => {
   const [error, setError] = useState('');
   const [isFavorited, setIsFavorited] = useState(false);
   const [imgError, setImgError] = useState(false);
+  const [searchParams] = useSearchParams();
+  const fromPage = searchParams.get('page') || '1';
 
   const [analysis, setAnalysis] = useState(null);
   const [analysisLoading, setAnalysisLoading] = useState(true);
@@ -149,7 +151,7 @@ const PropertyDetail = () => {
           </div>
         )}
         <div className="absolute top-4 left-4">
-          <button onClick={() => navigate('/properties')} className="flex items-center gap-1.5 bg-white/90 backdrop-blur-sm rounded-lg px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-white shadow-sm transition-colors">
+          <button onClick={() => navigate(`/properties?page=${fromPage}`)} className="flex items-center gap-1.5 bg-white/90 backdrop-blur-sm rounded-lg px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-white shadow-sm transition-colors">
             <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>
             Back
           </button>

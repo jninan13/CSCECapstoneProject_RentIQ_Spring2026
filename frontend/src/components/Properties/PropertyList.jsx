@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { propertiesAPI } from '../../services/api';
 import PropertyCard from './PropertyCard';
 import SearchFilters from './SearchFilters';
@@ -11,21 +11,31 @@ const PropertyList = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [sortOption, setSortOption] = useState('');
-  const [currentPage, setCurrentPage] = useState(1);
-  const [activeFilters, setActiveFilters] = useState({});
-  const [hasSearched, setHasSearched] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
-  const [compareList, setCompareList] = useState(() => location.state?.compareList || []);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const initialPage = parseInt(searchParams.get('page') || '1', 10);
+  const [currentPage, setCurrentPage] = useState(initialPage);
+  const [activeFilters, setActiveFilters] = useState({});
+  const [hasSearched, setHasSearched] = useState(false);
+  const [compareList, setCompareList] = useState(
+    () => location.state?.compareList || []
+  );
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const token = params.get('token');
+    const pageFromUrl = parseInt(params.get('page') || '1', 10);
+
     if (token) {
       localStorage.setItem('token', token);
-      window.history.replaceState({}, document.title, '/properties');
+      window.history.replaceState({}, document.title, `/properties?page=${pageFromUrl}`);
     }
-    handleSearch({});
+
+    setCurrentPage(pageFromUrl);
+    setActiveFilters({});
+    setHasSearched(true);
+    fetchProperties({}, pageFromUrl);
   }, []);
 
   const fetchProperties = async (filters, page = 1, selectedSort = sortOption) => {
@@ -52,6 +62,7 @@ const PropertyList = () => {
 
   const handleSearch = async (filters) => {
     setCurrentPage(1);
+    setSearchParams({ page: '1' });
     setActiveFilters(filters);
     setHasSearched(true);
     await fetchProperties(filters, 1);
@@ -59,7 +70,9 @@ const PropertyList = () => {
 
   const handlePageChange = async (nextPage) => {
     if (nextPage < 1 || loading) return;
+
     setCurrentPage(nextPage);
+    setSearchParams({ page: nextPage.toString() });
     await fetchProperties(activeFilters, nextPage);
     window.scrollTo(0, 0);
   };
@@ -74,6 +87,7 @@ const PropertyList = () => {
   const handleSortChange = async (nextSort) => {
     setSortOption(nextSort);
     setCurrentPage(1);
+    setSearchParams({ page: '1' });
     await fetchProperties(activeFilters, 1, nextSort);
   };
 
@@ -145,7 +159,8 @@ const PropertyList = () => {
                 <PropertyCard
                   key={property.id}
                   property={property}
-                  onFavoriteChange={() => handleSearch(activeFilters)}
+                  currentPage={currentPage}
+                  onFavoriteChange={() => fetchProperties(activeFilters, currentPage)}
                   onCompareToggle={handleCompareToggle}
                   isCompared={compareList.some((p) => p.id === property.id)}
                 />

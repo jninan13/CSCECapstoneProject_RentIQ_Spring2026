@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { favoritesAPI, getStreetViewUrl } from '../../services/api';
 
-const PropertyCard = ({ property, onFavoriteChange, onCompareToggle, isCompared }) => {
+const PropertyCard = ({ property, currentPage, onFavoriteChange, onCompareToggle, isCompared }) => {
   const [isFavorited, setIsFavorited] = useState(property.is_favorited);
   const [imgError, setImgError] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -35,7 +35,7 @@ const PropertyCard = ({ property, onFavoriteChange, onCompareToggle, isCompared 
   return (
     <div
       className="card cursor-pointer hover:shadow-md transition-shadow duration-200 group"
-      onClick={() => navigate(`/properties/${property.id}`)}
+      onClick={() => navigate(`/properties/${property.id}?page=${currentPage || 1}`)}
     >
       {/* Image */}
       <div className="relative aspect-[4/3] bg-gray-100">
