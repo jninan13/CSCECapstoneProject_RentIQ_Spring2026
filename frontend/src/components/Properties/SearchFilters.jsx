@@ -27,13 +27,16 @@ const SearchFilters = ({ onSearch }) => {
   const bedsValue = filters.bedrooms ? `${filters.bedrooms}|${filters.bedrooms_match}` : '';
   const bathsValue = filters.bathrooms ? `${filters.bathrooms}|${filters.bathrooms_match}` : '';
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    const cleaned = Object.fromEntries(Object.entries(filters).filter(([_, v]) => v !== ''));
-    // only send match mode when a count is actually selected
+  const getCleanedFilters = (nextFilters) => {
+    const cleaned = Object.fromEntries(Object.entries(nextFilters).filter(([_, v]) => v !== ''));
     if (!cleaned.bedrooms) delete cleaned.bedrooms_match;
     if (!cleaned.bathrooms) delete cleaned.bathrooms_match;
-    onSearch(cleaned);
+    return cleaned;
+  };
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    onSearch(getCleanedFilters(filters));
   };
 
   const handleReset = () => {
@@ -46,7 +49,7 @@ const SearchFilters = ({ onSearch }) => {
     onSearch({});
   };
 
-  const activeCount = Object.values(filters).filter(Boolean).length;
+  const activeCount = Object.keys(getCleanedFilters(filters)).length;
 
   const selectClass = 'input-field appearance-none bg-white';
 
