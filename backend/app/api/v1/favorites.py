@@ -10,6 +10,7 @@ from ...database import get_db
 from ...schemas import FavoriteResponse, FavoriteCreate, PropertyResponse
 from ...models import Favorite, Property, User
 from ..deps import get_current_user
+from ...core.investment import analyze_investment
 
 router = APIRouter(prefix="/favorites", tags=["favorites"])
 
@@ -35,6 +36,13 @@ async def get_favorites(
     result = []
     for fav in favorites:
         property_data = PropertyResponse.model_validate(fav.property)
+        analysis = analyze_investment(fav.property)
+        if analysis:
+            property_data.cap_rate = analysis.cap_rate
+            property_data.gross_yield = analysis.gross_yield
+            property_data.net_yield = analysis.net_yield
+            property_data.cash_on_cash_roi = analysis.cash_on_cash_roi
+            property_data.deal_score = analysis.deal_score
         property_data.is_favorited = True
         
         result.append({

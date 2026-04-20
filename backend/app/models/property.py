@@ -36,3 +36,4 @@ class Property(Base):
     
     # Relationships
     favorites = relationship("Favorite", back_populates="property", cascade="all, delete-orphan")
+    notes = relationship("Note", back_populates="property", cascade="all, delete-orphan")

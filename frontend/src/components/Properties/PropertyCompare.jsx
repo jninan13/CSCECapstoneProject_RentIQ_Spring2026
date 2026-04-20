@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { getStreetViewUrl } from '../../services/api';
+import { getStreetViewUrl, notesAPI } from '../../services/api';
+import { useAuth } from '../../context/AuthContext';
 import jsPDF from 'jspdf';
 
 const PropertyCompare = () => {
@@ -10,12 +11,23 @@ const PropertyCompare = () => {
   const [isExporting, setIsExporting] = useState(false);
   const [showExportMenu, setShowExportMenu] = useState(false);
   const exportMenuRef = useRef(null);
+  const { isAuthenticated } = useAuth();
+  const [notesMap, setNotesMap] = useState({});
 
   useEffect(() => {
     const handler = (e) => { if (exportMenuRef.current && !exportMenuRef.current.contains(e.target)) setShowExportMenu(false); };
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
   }, []);
+
+  useEffect(() => {
+    if (!isAuthenticated || compareList.length === 0) return;
+    notesAPI.getMany(compareList.map((p) => p.id)).then((res) => {
+      const map = {};
+      res.data.forEach((n) => { map[n.property_id] = n; });
+      setNotesMap(map);
+    }).catch(() => {});
+  }, [isAuthenticated, compareList.length]);
 
   if (compareList.length === 0) {
     return (
@@ -151,6 +163,16 @@ const PropertyCompare = () => {
                   </tr>
                 );
               })}
+              {isAuthenticated && (
+                <tr className={metrics.length % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'}>
+                  <td className="px-4 py-2.5 text-gray-600 font-medium align-top">My Notes</td>
+                  {compareList.map((p) => (
+                    <td key={p.id} className="px-4 py-2.5 text-gray-700 whitespace-pre-wrap align-top">
+                      {notesMap[p.id]?.body || <span className="text-gray-300 italic">No notes</span>}
+                    </td>
+                  ))}
+                </tr>
+              )}
             </tbody>
           </table>
         </div>

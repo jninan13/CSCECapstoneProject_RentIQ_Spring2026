@@ -18,6 +18,7 @@ const PropertyList = () => {
   const [currentPage, setCurrentPage] = useState(initialPage);
   const [activeFilters, setActiveFilters] = useState({});
   const [hasSearched, setHasSearched] = useState(false);
+  const [heroCompact, setHeroCompact] = useState(false);
   const [compareList, setCompareList] = useState(
     () => location.state?.compareList || []
   );
@@ -65,6 +66,7 @@ const PropertyList = () => {
     setSearchParams({ page: '1' });
     setActiveFilters(filters);
     setHasSearched(true);
+    setHeroCompact(true);
     await fetchProperties(filters, 1);
   };
 
@@ -94,7 +96,7 @@ const PropertyList = () => {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Hero / compact search */}
-      <HeroSearch onSearch={handleSearch} compact={hasSearched && properties.length > 0} />
+      <HeroSearch onSearch={handleSearch} compact={heroCompact} onCollapse={() => setHeroCompact(true)} />
 
       {/* Filter toolbar */}
       {hasSearched && <SearchFilters onSearch={handleSearch} />}

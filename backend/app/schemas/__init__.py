@@ -8,6 +8,7 @@ from .investment import (
     InvestmentAnalysisResponse,
 )
 from .chat import ChatMessage, ChatRequest, ChatResponse
+from .note import NoteUpsert, NoteResponse
 
 __all__ = [
     "UserCreate", "UserLogin", "UserResponse", 
@@ -18,4 +19,5 @@ __all__ = [
     "InvestmentAssumptionsSchema", "CashFlowBreakdownSchema",
     "InvestmentMetricsSchema", "InvestmentAnalysisResponse",
     "ChatMessage", "ChatRequest", "ChatResponse",
+    "NoteUpsert", "NoteResponse",
 ]

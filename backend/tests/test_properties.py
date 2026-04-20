@@ -128,6 +128,156 @@ def test_rent_estimation():
     assert Decimal("2500") < rent < Decimal("3500")
 
 
+def _make_property(db, address, city, state, zip_code, price=Decimal("300000")):
+    """Helper to insert a property with minimal required fields."""
+    from app.core.scoring import estimate_monthly_rent, calculate_profitability_score
+    estimated_rent = estimate_monthly_rent(price, 1500, 3)
+    score = calculate_profitability_score(
+        price=price, size_sqft=1500, estimated_rent=estimated_rent,
+        year_built=2015, property_type="single_family"
+    )
+    prop = Property(
+        address=address, city=city, state=state, zip_code=zip_code,
+        price=price, size_sqft=1500, bedrooms=3, bathrooms=2.0,
+        property_type="single_family", year_built=2015,
+        profitability_score=score, estimated_rent=estimated_rent,
+    )
+    db.add(prop)
+    db.commit()
+    db.refresh(prop)
+    return prop
+
+
+def test_q_search_by_zip(client, db):
+    """q param matches properties whose zip_code contains the token."""
+    _make_property(db, "1 Oak Ave", "Springfield", "IL", "62701")
+    _make_property(db, "2 Elm St", "Shelbyville", "IL", "62565")
+
+    response = client.get("/api/properties?q=62701")
+    assert response.status_code == status.HTTP_200_OK
+    data = response.json()
+    assert len(data) == 1
+    assert data[0]["zip_code"] == "62701"
+
+
+def test_q_search_by_city(client, db):
+    """q param matches properties by city name."""
+    _make_property(db, "10 Main St", "Beverly Hills", "CA", "90210")
+    _make_property(db, "20 Oak Rd", "Los Angeles", "CA", "90001")
+
+    response = client.get("/api/properties?q=Beverly+Hills")
+    assert response.status_code == status.HTTP_200_OK
+    data = response.json()
+    assert len(data) == 1
+    assert data[0]["city"] == "Beverly Hills"
+
+
+def test_q_search_by_state(client, db):
+    """q param matches all properties in a state."""
+    _make_property(db, "1 A St", "Austin", "TX", "78701")
+    _make_property(db, "2 B St", "Dallas", "TX", "75201")
+    _make_property(db, "3 C St", "Miami", "FL", "33101")
+
+    response = client.get("/api/properties?q=TX")
+    assert response.status_code == status.HTTP_200_OK
+    data = response.json()
+    assert len(data) == 2
+    assert all(p["state"] == "TX" for p in data)
+
+
+def test_q_search_by_street_address(client, db):
+    """q param matches a partial street address."""
+    _make_property(db, "123 Maple Drive", "Denver", "CO", "80201")
+    _make_property(db, "456 Oak Blvd", "Denver", "CO", "80202")
+
+    response = client.get("/api/properties?q=Maple")
+    assert response.status_code == status.HTTP_200_OK
+    data = response.json()
+    assert len(data) == 1
+    assert "Maple" in data[0]["address"]
+
+
+def test_q_search_full_address_narrows_to_one(client, db):
+    """A multi-token full address narrows down to a single property."""
+    _make_property(db, "123 Main St", "Austin", "TX", "78701")
+    _make_property(db, "456 Main St", "Austin", "TX", "78701")
+    _make_property(db, "123 Main St", "Dallas", "TX", "75201")
+
+    response = client.get("/api/properties?q=123+Main+St+Austin+TX+78701")
+    assert response.status_code == status.HTTP_200_OK
+    data = response.json()
+    assert len(data) == 1
+    assert data[0]["address"] == "123 Main St"
+    assert data[0]["city"] == "Austin"
+
+
+def test_zip_code_prefix_match(client, db):
+    """zip_code filter uses prefix match so partial zip still finds results."""
+    _make_property(db, "1 Pine St", "Beverly Hills", "CA", "90210")
+    _make_property(db, "2 Oak St", "Culver City", "CA", "90230")
+
+    response = client.get("/api/properties?zip_code=902")
+    assert response.status_code == status.HTTP_200_OK
+    data = response.json()
+    assert len(data) == 2
+
+    response = client.get("/api/properties?zip_code=90210")
+    assert response.status_code == status.HTTP_200_OK
+    data = response.json()
+    assert len(data) == 1
+    assert data[0]["zip_code"] == "90210"
+
+
+def test_bedrooms_exact_match(client, db):
+    """bedrooms_match=exact returns only properties with exactly that many beds."""
+    from app.core.scoring import estimate_monthly_rent, calculate_profitability_score
+    for beds, price in [(1, Decimal("300000")), (2, Decimal("310000")), (3, Decimal("320000")), (4, Decimal("330000"))]:
+        rent = estimate_monthly_rent(price, 1500, beds)
+        score = calculate_profitability_score(price=price, size_sqft=1500, estimated_rent=rent, year_built=2015, property_type="single_family")
+        db.add(Property(address=f"{beds} Main St", city="Austin", state="TX", zip_code="78701",
+                        price=price, size_sqft=1500, bedrooms=beds, bathrooms=2.0,
+                        property_type="single_family", year_built=2015,
+                        profitability_score=score, estimated_rent=rent))
+    db.commit()
+
+    response = client.get("/api/properties?bedrooms=3&bedrooms_match=exact")
+    assert response.status_code == status.HTTP_200_OK
+    data = response.json()
+    assert len(data) == 1
+    assert data[0]["bedrooms"] == 3
+
+    response = client.get("/api/properties?bedrooms=3&bedrooms_match=gte")
+    assert response.status_code == status.HTTP_200_OK
+    data = response.json()
+    assert all(p["bedrooms"] >= 3 for p in data)
+    assert len(data) == 2  # 3-bed and 4-bed
+
+
+def test_bathrooms_exact_match(client, db):
+    """bathrooms_match=exact returns only properties with exactly that many baths."""
+    from app.core.scoring import estimate_monthly_rent, calculate_profitability_score
+    for baths, price in [(1.0, Decimal("300000")), (1.5, Decimal("310000")), (2.0, Decimal("320000")), (2.5, Decimal("330000"))]:
+        rent = estimate_monthly_rent(price, 1500, 3)
+        score = calculate_profitability_score(price=price, size_sqft=1500, estimated_rent=rent, year_built=2015, property_type="single_family")
+        db.add(Property(address=f"{baths} bath St", city="Denver", state="CO", zip_code="80201",
+                        price=price, size_sqft=1500, bedrooms=3, bathrooms=baths,
+                        property_type="single_family", year_built=2015,
+                        profitability_score=score, estimated_rent=rent))
+    db.commit()
+
+    response = client.get("/api/properties?bathrooms=2.0&bathrooms_match=exact")
+    assert response.status_code == status.HTTP_200_OK
+    data = response.json()
+    assert all(p["bathrooms"] == 2.0 for p in data)
+    assert len(data) == 1
+
+    response = client.get("/api/properties?bathrooms=2.0&bathrooms_match=gte")
+    assert response.status_code == status.HTTP_200_OK
+    data = response.json()
+    assert all(p["bathrooms"] >= 2.0 for p in data)
+    assert len(data) == 2  # 2.0 and 2.5
+
+
 def test_get_property_detail(client, db):
     """Test getting a single property's details."""
     from app.core.scoring import estimate_monthly_rent, calculate_profitability_score

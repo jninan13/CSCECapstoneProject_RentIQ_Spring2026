@@ -7,7 +7,15 @@ const FavoritesList = () => {
   const [favorites, setFavorites] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [compareList, setCompareList] = useState([]);
   const navigate = useNavigate();
+
+  const handleCompareToggle = (property) => {
+    const exists = compareList.some((p) => p.id === property.id);
+    if (exists) { setCompareList(compareList.filter((p) => p.id !== property.id)); return; }
+    if (compareList.length < 3) { setCompareList([...compareList, property]); }
+    else { alert('You can compare up to 3 properties.'); }
+  };
 
   useEffect(() => { loadFavorites(); }, []);
 
@@ -37,6 +45,18 @@ const FavoritesList = () => {
           <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-lg mb-4 text-sm">{error}</div>
         )}
 
+        {compareList.length > 0 && (
+          <div className="bg-blue-50 border border-blue-200 rounded-lg mb-4 px-4 py-2.5 flex items-center justify-between">
+            <span className="text-sm text-blue-800 font-medium">
+              {compareList.length} propert{compareList.length === 1 ? 'y' : 'ies'} selected
+            </span>
+            <div className="flex gap-2">
+              <button onClick={() => navigate('/properties/compare', { state: { compareList } })} className="btn-primary text-xs px-4 py-1.5">Compare Now</button>
+              <button onClick={() => setCompareList([])} className="btn-secondary text-xs px-3 py-1.5">Clear</button>
+            </div>
+          </div>
+        )}
+
         {favorites.length === 0 ? (
           <div className="text-center py-20">
             <svg className="w-16 h-16 mx-auto text-gray-300 mb-4" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
@@ -49,7 +69,13 @@ const FavoritesList = () => {
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
             {favorites.map((favorite) => (
-              <PropertyCard key={favorite.id} property={favorite.property} onFavoriteChange={loadFavorites} />
+              <PropertyCard
+                key={favorite.id}
+                property={favorite.property}
+                onFavoriteChange={loadFavorites}
+                onCompareToggle={handleCompareToggle}
+                isCompared={compareList.some((p) => p.id === favorite.property.id)}
+              />
             ))}
           </div>
         )}

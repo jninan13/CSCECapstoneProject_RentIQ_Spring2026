@@ -8,6 +8,7 @@ from typing import List, Optional
 from datetime import datetime
 import math
 import logging
+import re
 
 # Image API
 from fastapi import Response
@@ -72,13 +73,16 @@ def calculate_distance(lat1: float, lon1: float, lat2: float, lon2: float) -> fl
 
 @router.get("", response_model=List[PropertyResponse])
 async def search_properties(
-    zip_code: Optional[str] = Query(None, description="Filter by zip code"),
+    q: Optional[str] = Query(None, description="Free-text search over address, city, state, or ZIP code"),
+    zip_code: Optional[str] = Query(None, description="Filter by zip code (prefix match)"),
     min_price: Optional[float] = Query(None, ge=0),
     max_price: Optional[float] = Query(None, ge=0),
     min_size: Optional[int] = Query(None, ge=0),
     max_size: Optional[int] = Query(None, ge=0),
     bedrooms: Optional[int] = Query(None, ge=0),
+    bedrooms_match: str = Query("gte", pattern="^(gte|exact)$", description="'gte' = at least N beds, 'exact' = exactly N beds"),
     bathrooms: Optional[float] = Query(None, ge=0),
+    bathrooms_match: str = Query("gte", pattern="^(gte|exact)$", description="'gte' = at least N baths, 'exact' = exactly N baths"),
     property_type: Optional[str] = Query(None),
     radius_miles: Optional[float] = Query(None, ge=0, le=50),
     min_score: Optional[float] = Query(None, ge=0, le=100),
@@ -94,11 +98,28 @@ async def search_properties(
     
     Supports filtering by location, price range, size, bedrooms, bathrooms,
     property type, radius from zip code, and minimum profitability score.
+    
+    The `q` parameter accepts free-text (address, city, state, ZIP, or any
+    combination) and performs a tokenized case-insensitive search across all
+    four location fields.
     """
     query = db.query(Property)
 
+    if q:
+        tokens = [t for t in re.split(r"[,\s]+", q.strip()) if t]
+        for tok in tokens:
+            like = f"%{tok}%"
+            query = query.filter(
+                or_(
+                    Property.address.ilike(like),
+                    Property.city.ilike(like),
+                    Property.state.ilike(like),
+                    Property.zip_code.ilike(like),
+                )
+            )
+
     if zip_code:
-        query = query.filter(Property.zip_code == zip_code)
+        query = query.filter(Property.zip_code.ilike(f"{zip_code}%"))
 
     if min_price is not None:
         query = query.filter(Property.price >= min_price)
@@ -113,10 +134,16 @@ async def search_properties(
         query = query.filter(Property.size_sqft <= max_size)
 
     if bedrooms is not None:
-        query = query.filter(Property.bedrooms == bedrooms)
+        if bedrooms_match == "exact":
+            query = query.filter(Property.bedrooms == bedrooms)
+        else:
+            query = query.filter(Property.bedrooms >= bedrooms)
 
     if bathrooms is not None:
-        query = query.filter(Property.bathrooms >= bathrooms)
+        if bathrooms_match == "exact":
+            query = query.filter(Property.bathrooms == bathrooms)
+        else:
+            query = query.filter(Property.bathrooms >= bathrooms)
 
     if property_type:
         query = query.filter(Property.property_type.ilike(f"%{property_type}%"))

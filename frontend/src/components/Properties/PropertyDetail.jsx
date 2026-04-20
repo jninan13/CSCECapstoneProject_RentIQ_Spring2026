@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { propertiesAPI, favoritesAPI, getStreetViewUrl } from '../../services/api';
+import NoteEditor from './NoteEditor';
 import { PieChart, Pie, Cell, Tooltip as RechartsTooltip, Legend, ResponsiveContainer } from 'recharts';
 import jsPDF from 'jspdf';
 
@@ -261,6 +262,11 @@ const PropertyDetail = () => {
                 )}
               </div>
             )}
+
+            {/* Personal notes - bottom of page */}
+            <div className="mt-8 pt-6 border-t border-gray-200">
+              <NoteEditor propertyId={Number(id)} />
+            </div>
           </div>
 
           {/* RIGHT sidebar */}

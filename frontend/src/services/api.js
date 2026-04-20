@@ -65,6 +65,13 @@ export const favoritesAPI = {
   remove: (favoriteId) => api.delete(`/favorites/${favoriteId}`),
 };
 
+export const notesAPI = {
+  get: (propertyId) => api.get(`/notes/${propertyId}`),
+  upsert: (propertyId, body) => api.put(`/notes/${propertyId}`, { body }),
+  remove: (propertyId) => api.delete(`/notes/${propertyId}`),
+  getMany: (propertyIds) => api.get('/notes', { params: { property_ids: propertyIds.join(',') } }),
+};
+
 export const chatAPI = {
   send: (message, history = [], propertyId = null) =>
     api.post('/chat', { message, history, property_id: propertyId }),

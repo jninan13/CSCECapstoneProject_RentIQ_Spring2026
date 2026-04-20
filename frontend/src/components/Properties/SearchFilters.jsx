@@ -4,22 +4,45 @@ const SearchFilters = ({ onSearch }) => {
   const [showMore, setShowMore] = useState(false);
   const [filters, setFilters] = useState({
     zip_code: '', min_price: '', max_price: '', min_size: '', max_size: '',
-    bedrooms: '', bathrooms: '', property_type: '', radius_miles: '', min_score: '',
+    bedrooms: '', bedrooms_match: 'gte',
+    bathrooms: '', bathrooms_match: 'gte',
+    property_type: '', radius_miles: '', min_score: '',
   });
 
   const handleChange = (e) => {
     setFilters({ ...filters, [e.target.name]: e.target.value });
   };
 
+  // beds/baths dropdowns encode value|mode in a single option so the filter bar stays compact
+  const handleBedsChange = (e) => {
+    const [value, match] = e.target.value ? e.target.value.split('|') : ['', 'gte'];
+    setFilters({ ...filters, bedrooms: value, bedrooms_match: match || 'gte' });
+  };
+
+  const handleBathsChange = (e) => {
+    const [value, match] = e.target.value ? e.target.value.split('|') : ['', 'gte'];
+    setFilters({ ...filters, bathrooms: value, bathrooms_match: match || 'gte' });
+  };
+
+  const bedsValue = filters.bedrooms ? `${filters.bedrooms}|${filters.bedrooms_match}` : '';
+  const bathsValue = filters.bathrooms ? `${filters.bathrooms}|${filters.bathrooms_match}` : '';
+
   const handleSubmit = (e) => {
     e.preventDefault();
     const cleaned = Object.fromEntries(Object.entries(filters).filter(([_, v]) => v !== ''));
+    // only send match mode when a count is actually selected
+    if (!cleaned.bedrooms) delete cleaned.bedrooms_match;
+    if (!cleaned.bathrooms) delete cleaned.bathrooms_match;
     onSearch(cleaned);
   };
 
   const handleReset = () => {
-    const reset = Object.fromEntries(Object.keys(filters).map((k) => [k, '']));
-    setFilters(reset);
+    setFilters({
+      zip_code: '', min_price: '', max_price: '', min_size: '', max_size: '',
+      bedrooms: '', bedrooms_match: 'gte',
+      bathrooms: '', bathrooms_match: 'gte',
+      property_type: '', radius_miles: '', min_score: '',
+    });
     onSearch({});
   };
 
@@ -41,16 +64,40 @@ const SearchFilters = ({ onSearch }) => {
             <input type="number" name="max_price" value={filters.max_price} onChange={handleChange}
               placeholder="Max Price" className="input-field w-28 text-xs py-2" />
 
-            <select name="bedrooms" value={filters.bedrooms} onChange={handleChange} className={`${selectClass} w-24 text-xs py-2`}>
+            <select value={bedsValue} onChange={handleBedsChange} className={`${selectClass} w-32 text-xs py-2`}>
               <option value="">Beds</option>
-              <option value="1">1+</option><option value="2">2+</option>
-              <option value="3">3+</option><option value="4">4+</option><option value="5">5+</option>
+              <optgroup label="At least">
+                <option value="1|gte">1+ beds</option>
+                <option value="2|gte">2+ beds</option>
+                <option value="3|gte">3+ beds</option>
+                <option value="4|gte">4+ beds</option>
+                <option value="5|gte">5+ beds</option>
+              </optgroup>
+              <optgroup label="Exactly">
+                <option value="1|exact">Exactly 1</option>
+                <option value="2|exact">Exactly 2</option>
+                <option value="3|exact">Exactly 3</option>
+                <option value="4|exact">Exactly 4</option>
+                <option value="5|exact">Exactly 5</option>
+              </optgroup>
             </select>
 
-            <select name="bathrooms" value={filters.bathrooms} onChange={handleChange} className={`${selectClass} w-24 text-xs py-2`}>
+            <select value={bathsValue} onChange={handleBathsChange} className={`${selectClass} w-32 text-xs py-2`}>
               <option value="">Baths</option>
-              <option value="1">1+</option><option value="2">2+</option>
-              <option value="3">3+</option><option value="4">4+</option>
+              <optgroup label="At least">
+                <option value="1|gte">1+ baths</option>
+                <option value="2|gte">2+ baths</option>
+                <option value="3|gte">3+ baths</option>
+                <option value="4|gte">4+ baths</option>
+              </optgroup>
+              <optgroup label="Exactly">
+                <option value="1|exact">Exactly 1</option>
+                <option value="1.5|exact">Exactly 1.5</option>
+                <option value="2|exact">Exactly 2</option>
+                <option value="2.5|exact">Exactly 2.5</option>
+                <option value="3|exact">Exactly 3</option>
+                <option value="4|exact">Exactly 4</option>
+              </optgroup>
             </select>
 
             <select name="property_type" value={filters.property_type} onChange={handleChange} className={`${selectClass} w-32 text-xs py-2`}>
