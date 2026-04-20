@@ -36,7 +36,6 @@ class PropertyResponse(PropertyBase):
     gross_yield: float | None = None
     net_yield: float | None = None
     cash_on_cash_roi: float | None = None
-    deal_score: float | None = None
     created_at: datetime
     is_favorited: bool = False  # Set dynamically based on user
     
@@ -46,13 +45,16 @@ class PropertyResponse(PropertyBase):
 
 class PropertySearchParams(BaseModel):
     """Query parameters for property search."""
+    q: Optional[str] = None
     zip_code: Optional[str] = None
     min_price: Optional[Decimal] = None
     max_price: Optional[Decimal] = None
     min_size: Optional[int] = None
     max_size: Optional[int] = None
     bedrooms: Optional[int] = None
+    bedrooms_match: Optional[str] = "gte"
     bathrooms: Optional[float] = None
+    bathrooms_match: Optional[str] = "gte"
     property_type: Optional[str] = None
     radius_miles: Optional[float] = Field(None, ge=0, le=50)  # Max 50 miles
     min_score: Optional[float] = Field(None, ge=0, le=100)

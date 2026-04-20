@@ -30,7 +30,6 @@ RentIQ helps users discover and analyze investment properties. The platform prov
   - Property age (up to 15 points): newer properties score higher; very old ones lose points.
   - Property type preference (up to 15 points): single-family homes score highest, followed by multi-family and townhouses.
   - Market conditions, crime risk, and macroeconomic factors can add or subtract additional points.
-- A Deal Score (0-100) combining cap rate contribution (up to 100 pts) and cash-on-cash ROI contribution (up to 40 pts).
 - Full investment analysis: cap rate, gross/net yield, cash-on-cash ROI, break-even years, IRR, and annual cash flow breakdowns.
 - Users can favorite properties and compare them side-by-side.
 
@@ -64,7 +63,6 @@ def _build_property_context(prop: Property) -> str:
             f"Gross Yield: {analysis.gross_yield * 100:.2f}%" if analysis.gross_yield is not None else "Gross Yield: N/A",
             f"Net Yield: {analysis.net_yield * 100:.2f}%" if analysis.net_yield is not None else "Net Yield: N/A",
             f"Cash-on-Cash ROI: {analysis.cash_on_cash_roi * 100:.2f}%" if analysis.cash_on_cash_roi is not None else "Cash-on-Cash ROI: N/A",
-            f"Deal Score: {analysis.deal_score:.0f}/100" if analysis.deal_score is not None else "Deal Score: N/A",
             f"Annual Cash Flow: ${float(analysis.cash_flow.cash_flow_annual):,.0f}",
             f"Break-Even: {analysis.break_even_years:.1f} years" if analysis.break_even_years is not None else "Break-Even: N/A (negative cash flow)",
         ])

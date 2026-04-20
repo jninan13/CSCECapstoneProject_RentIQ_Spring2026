@@ -1,14 +1,12 @@
-/**
- * Property list page with search and filters.
- */
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { propertiesAPI } from '../../services/api';
 import PropertyCard from './PropertyCard';
 import SearchFilters from './SearchFilters';
+import HeroSearch from './HeroSearch';
 
 const PropertyList = () => {
-  const PAGE_SIZE = 21;
+  const PAGE_SIZE = 20;
   const [properties, setProperties] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -19,59 +17,41 @@ const PropertyList = () => {
   const initialPage = parseInt(searchParams.get('page') || '1', 10);
   const [currentPage, setCurrentPage] = useState(initialPage);
   const [activeFilters, setActiveFilters] = useState({});
+  const [hasSearched, setHasSearched] = useState(false);
+  const [heroCompact, setHeroCompact] = useState(false);
   const [compareList, setCompareList] = useState(
     () => location.state?.compareList || []
   );
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    const token = params.get("token");
-    const pageFromUrl = parseInt(params.get("page") || "1", 10);
+    const token = params.get('token');
+    const pageFromUrl = parseInt(params.get('page') || '1', 10);
 
     if (token) {
-      localStorage.setItem("token", token);
+      localStorage.setItem('token', token);
       window.history.replaceState({}, document.title, `/properties?page=${pageFromUrl}`);
     }
 
     setCurrentPage(pageFromUrl);
     setActiveFilters({});
+    setHasSearched(true);
     fetchProperties({}, pageFromUrl);
   }, []);
 
   const fetchProperties = async (filters, page = 1, selectedSort = sortOption) => {
     setLoading(true);
     setError('');
-
     try {
-      const params = {
-        skip: (page - 1) * PAGE_SIZE,
-        limit: PAGE_SIZE,
-        ...filters,
-      };
+      const params = { skip: (page - 1) * PAGE_SIZE, limit: PAGE_SIZE, ...filters };
+      if (selectedSort === 'priceLowHigh') { params.sort_by = 'price'; params.sort_order = 'asc'; }
+      else if (selectedSort === 'priceHighLow') { params.sort_by = 'price'; params.sort_order = 'desc'; }
+      else if (selectedSort === 'scoreLowHigh') { params.sort_by = 'profitability_score'; params.sort_order = 'asc'; }
+      else if (selectedSort === 'scoreHighLow') { params.sort_by = 'profitability_score'; params.sort_order = 'desc'; }
+      else if (selectedSort === 'sqftLowHigh') { params.sort_by = 'size_sqft'; params.sort_order = 'asc'; }
+      else if (selectedSort === 'sqftHighLow') { params.sort_by = 'size_sqft'; params.sort_order = 'desc'; }
 
-      if (selectedSort === 'priceLowHigh') {
-        params.sort_by = 'price';
-        params.sort_order = 'asc';
-      } else if (selectedSort === 'priceHighLow') {
-        params.sort_by = 'price';
-        params.sort_order = 'desc';
-      } else if (selectedSort === 'scoreLowHigh') {
-        params.sort_by = 'profitability_score';
-        params.sort_order = 'asc';
-      } else if (selectedSort === 'scoreHighLow') {
-        params.sort_by = 'profitability_score';
-        params.sort_order = 'desc';
-      } else if (selectedSort === 'sqftLowHigh') {
-        params.sort_by = 'size_sqft';
-        params.sort_order = 'asc';
-      } else if (selectedSort === 'sqftHighLow') {
-        params.sort_by = 'size_sqft';
-        params.sort_order = 'desc';
-      }
-
-      const response = await propertiesAPI.search({
-        ...params,
-      });
+      const response = await propertiesAPI.search(params);
       setProperties(response.data);
     } catch (err) {
       setError('Failed to load properties. Please try again.');
@@ -85,6 +65,8 @@ const PropertyList = () => {
     setCurrentPage(1);
     setSearchParams({ page: '1' });
     setActiveFilters(filters);
+    setHasSearched(true);
+    setHeroCompact(true);
     await fetchProperties(filters, 1);
   };
 
@@ -94,22 +76,14 @@ const PropertyList = () => {
     setCurrentPage(nextPage);
     setSearchParams({ page: nextPage.toString() });
     await fetchProperties(activeFilters, nextPage);
+    window.scrollTo(0, 0);
   };
 
-
   const handleCompareToggle = (property) => {
-    const alreadySelected = compareList.some((p) => p.id === property.id);
-
-    if (alreadySelected) {
-      setCompareList(compareList.filter((p) => p.id !== property.id));
-      return;
-    }
-
-    if (compareList.length < 3) {
-      setCompareList([...compareList, property]);
-    } else {
-      alert('You can compare up to 3 properties.');
-    }
+    const exists = compareList.some((p) => p.id === property.id);
+    if (exists) { setCompareList(compareList.filter((p) => p.id !== property.id)); return; }
+    if (compareList.length < 3) { setCompareList([...compareList, property]); }
+    else { alert('You can compare up to 3 properties.'); }
   };
 
   const handleSortChange = async (nextSort) => {
@@ -120,122 +94,92 @@ const PropertyList = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-8 transition-colors duration-300">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-8">
-          Find Your Investment Property
-        </h1>
+    <div className="min-h-screen bg-gray-50">
+      {/* Hero / compact search */}
+      <HeroSearch onSearch={handleSearch} compact={heroCompact} onCollapse={() => setHeroCompact(true)} />
 
-        <SearchFilters onSearch={handleSearch} />
+      {/* Filter toolbar */}
+      {hasSearched && <SearchFilters onSearch={handleSearch} />}
 
-        {compareList.length > 0 && (
-          <div className="mb-6 p-4 bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-800 rounded-lg flex justify-between items-center">
-            <div className="text-sm text-blue-900 dark:text-blue-200">
-              {compareList.length} propert{compareList.length === 1 ? 'y' : 'ies'} selected for comparison
-            </div>
-
-            <div className="flex items-center gap-3">
-              <button
-                onClick={() => navigate('/properties/compare', { state: { compareList } })}
-                className="btn-primary"
-              >
+      {/* Compare bar */}
+      {compareList.length > 0 && (
+        <div className="bg-blue-50 border-b border-blue-200">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2.5 flex items-center justify-between">
+            <span className="text-sm text-blue-800 font-medium">
+              {compareList.length} propert{compareList.length === 1 ? 'y' : 'ies'} selected
+            </span>
+            <div className="flex gap-2">
+              <button onClick={() => navigate('/properties/compare', { state: { compareList } })} className="btn-primary text-xs px-4 py-1.5">
                 Compare Now
               </button>
-              <button
-                onClick={() => setCompareList([])}
-                className="px-4 py-2 rounded-lg text-sm font-medium bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
-              >
-                Cancel
+              <button onClick={() => setCompareList([])} className="btn-secondary text-xs px-3 py-1.5">
+                Clear
               </button>
             </div>
           </div>
-        )}
+        </div>
+      )}
 
+      {/* Results */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
         {error && (
-          <div className="bg-red-50 dark:bg-red-900/30 border border-red-400 dark:border-red-800 text-red-700 dark:text-red-400 px-4 py-3 rounded mb-6">
-            {error}
-          </div>
+          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4 text-sm">{error}</div>
         )}
 
         {loading ? (
-          <div className="text-center py-12">
-            <div className="text-xl text-gray-600 dark:text-gray-400">Loading properties...</div>
-          </div>
-        ) : properties.length === 0 ? (
-          <div className="text-center py-12">
-            <p className="text-xl text-gray-600 dark:text-gray-400">No properties found</p>
-            <p className="text-gray-500 dark:text-gray-500 mt-2">Try adjusting your filters</p>
-          </div>
+          <div className="text-center py-20 text-gray-400">Loading properties...</div>
+        ) : !hasSearched || properties.length === 0 ? (
+          hasSearched && (
+            <div className="text-center py-20">
+              <p className="text-xl font-semibold text-gray-500">No properties found</p>
+              <p className="text-gray-400 mt-1">Try adjusting your filters</p>
+            </div>
+          )
         ) : (
           <>
-            <div className="mb-4 text-gray-600 dark:text-gray-400">
-              <div className="flex justify-between items-center mb-6">
-                <div className="text-gray-600 dark:text-gray-400">
-                  Showing {properties.length} properties
-                </div>
-
-                <div>
-                  <select
-                    value={sortOption}
-                    onChange={(e) => handleSortChange(e.target.value)}
-                    className="input-field w-56 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
-                  >
-                    <option value="">Sort By</option>
-                    <option value="priceLowHigh">Price (Low to High)</option>
-                    <option value="priceHighLow">Price (High to Low)</option>
-                    <option value="scoreLowHigh">Profitability Score (Low to High)</option>
-                    <option value="scoreHighLow">Profitability Score</option>
-                    <option value="sqftLowHigh">Area (m²) Low to High</option>
-                    <option value="sqftHighLow">Area (m²) High to Low</option>
-                  </select>
-                </div>
-              </div>
+            {/* Sort + count header */}
+            <div className="flex items-center justify-between mb-5">
+              <p className="text-sm text-gray-500">{properties.length} properties</p>
+              <select
+                value={sortOption}
+                onChange={(e) => handleSortChange(e.target.value)}
+                className="input-field w-52 text-xs py-2"
+              >
+                <option value="">Sort By</option>
+                <option value="priceLowHigh">Price: Low to High</option>
+                <option value="priceHighLow">Price: High to Low</option>
+                <option value="scoreHighLow">Score: High to Low</option>
+                <option value="scoreLowHigh">Score: Low to High</option>
+                <option value="sqftHighLow">Sqft: High to Low</option>
+                <option value="sqftLowHigh">Sqft: Low to High</option>
+              </select>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+
+            {/* Grid */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
               {properties.map((property) => (
                 <PropertyCard
                   key={property.id}
                   property={property}
                   currentPage={currentPage}
-                  onFavoriteChange={() => handleSearch({})}
+                  onFavoriteChange={() => fetchProperties(activeFilters, currentPage)}
                   onCompareToggle={handleCompareToggle}
                   isCompared={compareList.some((p) => p.id === property.id)}
                 />
               ))}
             </div>
 
-            <div className="mt-8 flex items-center justify-between gap-3">
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => handlePageChange(1)}
-                  disabled={currentPage === 1 || loading}
-                  className="btn-secondary disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  First
-                </button>
-
-                <button
-                  onClick={() => handlePageChange(currentPage - 1)}
-                  disabled={currentPage === 1 || loading}
-                  className="btn-secondary disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  Previous
-                </button>
-              </div>
-
-              <span className="text-sm text-gray-600 dark:text-gray-400">
-                Page {currentPage}
-              </span>
-
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => handlePageChange(currentPage + 1)}
-                  disabled={properties.length < PAGE_SIZE || loading}
-                  className="btn-secondary disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  Next
-                </button>
-              </div>
+            {/* Pagination */}
+            <div className="mt-8 flex items-center justify-between">
+              <button onClick={() => handlePageChange(currentPage - 1)} disabled={currentPage === 1 || loading}
+                className="btn-secondary disabled:opacity-40 text-sm px-4 py-2">
+                Previous
+              </button>
+              <span className="text-sm text-gray-500">Page {currentPage}</span>
+              <button onClick={() => handlePageChange(currentPage + 1)} disabled={properties.length < PAGE_SIZE || loading}
+                className="btn-secondary disabled:opacity-40 text-sm px-4 py-2">
+                Next
+              </button>
             </div>
           </>
         )}

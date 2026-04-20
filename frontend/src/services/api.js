@@ -6,7 +6,6 @@ import axios from 'axios';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
 
-// Create axios instance with default config
 const api = axios.create({
   baseURL: API_BASE_URL,
   headers: {
@@ -14,7 +13,6 @@ const api = axios.create({
   },
 });
 
-// Request interceptor to add auth token
 api.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('token');
@@ -28,12 +26,10 @@ api.interceptors.request.use(
   }
 );
 
-// Response interceptor for error handling
 api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
-      // Token expired or invalid
       localStorage.removeItem('token');
       window.location.href = '/login';
     }
@@ -41,7 +37,9 @@ api.interceptors.response.use(
   }
 );
 
-// Auth API
+export const getStreetViewUrl = (propertyId) =>
+  `${API_BASE_URL}/properties/${propertyId}/streetview.jpg`;
+
 export const authAPI = {
   register: (data) => api.post('/auth/register', data),
   login: (data) => api.post('/auth/login', data),
@@ -49,7 +47,6 @@ export const authAPI = {
   googleAuth: (code) => api.post('/auth/google', { code }),
 };
 
-// Properties API
 export const propertiesAPI = {
   search: (params) => api.get('/properties', { params }),
   getById: (id) => api.get(`/properties/${id}`),
@@ -57,20 +54,24 @@ export const propertiesAPI = {
   getExplanation: (id, params) => api.get(`/properties/${id}/explain`, { params }),
 };
 
-// User Profile API
 export const userAPI = {
   getProfile: () => api.get('/users/profile'),
   updateProfile: (data) => api.put('/users/profile', data),
 };
 
-// Favorites API
 export const favoritesAPI = {
   getAll: () => api.get('/favorites'),
   add: (propertyId) => api.post('/favorites', { property_id: propertyId }),
   remove: (favoriteId) => api.delete(`/favorites/${favoriteId}`),
 };
 
-// Chat API
+export const notesAPI = {
+  get: (propertyId) => api.get(`/notes/${propertyId}`),
+  upsert: (propertyId, body) => api.put(`/notes/${propertyId}`, { body }),
+  remove: (propertyId) => api.delete(`/notes/${propertyId}`),
+  getMany: (propertyIds) => api.get('/notes', { params: { property_ids: propertyIds.join(',') } }),
+};
+
 export const chatAPI = {
   send: (message, history = [], propertyId = null) =>
     api.post('/chat', { message, history, property_id: propertyId }),

@@ -1,5 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
+import { getStreetViewUrl, notesAPI } from '../../services/api';
+import { useAuth } from '../../context/AuthContext';
 import jsPDF from 'jspdf';
 
 const PropertyCompare = () => {
@@ -9,407 +11,167 @@ const PropertyCompare = () => {
   const [isExporting, setIsExporting] = useState(false);
   const [showExportMenu, setShowExportMenu] = useState(false);
   const exportMenuRef = useRef(null);
+  const { isAuthenticated } = useAuth();
+  const [notesMap, setNotesMap] = useState({});
 
-  // Close dropdown when clicking outside
   useEffect(() => {
-    const handleClickOutside = (e) => {
-      if (exportMenuRef.current && !exportMenuRef.current.contains(e.target)) {
-        setShowExportMenu(false);
-      }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    const handler = (e) => { if (exportMenuRef.current && !exportMenuRef.current.contains(e.target)) setShowExportMenu(false); };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
   }, []);
+
+  useEffect(() => {
+    if (!isAuthenticated || compareList.length === 0) return;
+    notesAPI.getMany(compareList.map((p) => p.id)).then((res) => {
+      const map = {};
+      res.data.forEach((n) => { map[n.property_id] = n; });
+      setNotesMap(map);
+    }).catch(() => {});
+  }, [isAuthenticated, compareList.length]);
 
   if (compareList.length === 0) {
     return (
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-8 transition-colors duration-300">
-        <div className="max-w-5xl mx-auto px-4">
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-4">Compare Properties</h1>
-          <p className="text-gray-600 dark:text-gray-400 mb-6">No properties selected for comparison.</p>
-          <button onClick={() => navigate('/properties')} className="btn-primary">
-            Back to Properties
-          </button>
+      <div className="min-h-screen bg-gray-50 py-12">
+        <div className="max-w-5xl mx-auto px-4 text-center">
+          <h1 className="text-2xl font-bold text-gray-900 mb-3">Compare Properties</h1>
+          <p className="text-gray-500 mb-6">No properties selected for comparison.</p>
+          <button onClick={() => navigate('/properties')} className="btn-primary">Browse Properties</button>
         </div>
       </div>
     );
   }
 
-  const formatCurrency = (value) =>
-    value != null ? `$${parseFloat(value).toLocaleString()}` : '—';
+  const fc = (v) => v != null ? `$${parseFloat(v).toLocaleString()}` : '—';
+  const fp = (v) => v != null ? `${(v * 100).toFixed(1)}%` : '—';
 
-  const formatPercent = (value) =>
-    value != null ? `${(value * 100).toFixed(1)}%` : '—';
-
-  // Build the rows data used for both display and export
-  const metricRows = [
-    { label: 'Price', values: compareList.map((p) => formatCurrency(p.price)) },
-    { label: 'Profitability Score', values: compareList.map((p) => p.profitability_score?.toFixed(1) || '—') },
-    { label: 'Estimated Rent', values: compareList.map((p) => p.estimated_rent ? `${formatCurrency(p.estimated_rent)}/mo` : '—') },
-    { label: 'Cap Rate', values: compareList.map((p) => formatPercent(p.cap_rate)) },
-    { label: 'Cash-on-Cash ROI', values: compareList.map((p) => formatPercent(p.cash_on_cash_roi)) },
-    { label: 'Deal Score', values: compareList.map((p) => p.deal_score != null ? `${p.deal_score.toFixed(0)}/100` : '—') },
-    { label: 'Area (m²)', values: compareList.map((p) => p.size_sqft ? `${p.size_sqft.toLocaleString()} m²` : '—') },
-    { label: 'Bedrooms', values: compareList.map((p) => String(p.bedrooms ?? '—')) },
-    { label: 'Bathrooms', values: compareList.map((p) => String(p.bathrooms ?? '—')) },
-    { label: 'Property Type', values: compareList.map((p) => p.property_type ? p.property_type.replace('_', ' ') : '—') },
-    { label: 'Year Built', values: compareList.map((p) => String(p.year_built ?? '—')) },
-    { label: 'Price / m²', values: compareList.map((p) => p.price && p.size_sqft ? `$${(parseFloat(p.price) / p.size_sqft).toFixed(2)}` : '—') },
+  const metrics = [
+    { label: 'Price', key: 'price', fmt: (p) => fc(p.price), best: 'low' },
+    { label: 'Score', key: 'profitability_score', fmt: (p) => p.profitability_score?.toFixed(1) || '—', best: 'high' },
+    { label: 'Est. Rent', key: 'estimated_rent', fmt: (p) => p.estimated_rent ? `${fc(p.estimated_rent)}/mo` : '—', best: 'high' },
+    { label: 'Cap Rate', key: 'cap_rate', fmt: (p) => fp(p.cap_rate), best: 'high' },
+    { label: 'Cash-on-Cash', key: 'cash_on_cash_roi', fmt: (p) => fp(p.cash_on_cash_roi), best: 'high' },
+    { label: 'Sqft', key: 'size_sqft', fmt: (p) => p.size_sqft ? Math.round(p.size_sqft * 10.7639).toLocaleString() : '—', best: 'high' },
+    { label: 'Beds', key: 'bedrooms', fmt: (p) => String(p.bedrooms ?? '—') },
+    { label: 'Baths', key: 'bathrooms', fmt: (p) => String(p.bathrooms ?? '—') },
+    { label: 'Type', key: 'property_type', fmt: (p) => p.property_type?.replace('_', ' ') || '—' },
+    { label: 'Year Built', key: 'year_built', fmt: (p) => String(p.year_built ?? '—') },
   ];
 
-  // ── Professional PDF Export (structured, black & white) ──
+  const getBestIdx = (metric) => {
+    if (!metric.best) return -1;
+    let bestIdx = -1, bestVal = metric.best === 'high' ? -Infinity : Infinity;
+    compareList.forEach((p, i) => {
+      const v = parseFloat(p[metric.key]);
+      if (isNaN(v)) return;
+      if (metric.best === 'high' && v > bestVal) { bestVal = v; bestIdx = i; }
+      if (metric.best === 'low' && v < bestVal) { bestVal = v; bestIdx = i; }
+    });
+    return bestIdx;
+  };
+
+  const metricRows = metrics.map((m) => ({
+    label: m.label, values: compareList.map((p) => m.fmt(p)),
+  }));
+
   const handleExportPDF = () => {
     setIsExporting(true);
     try {
       const pdf = new jsPDF({ orientation: 'p', unit: 'mm', format: 'a4' });
-      const pageWidth = pdf.internal.pageSize.getWidth();
-      const pageHeight = pdf.internal.pageSize.getHeight();
-      const margin = 15;
-      const contentWidth = pageWidth - margin * 2;
-      let y = margin;
-
-      // ── Helper: check page break ──
-      const checkPageBreak = (needed) => {
-        if (y + needed > pageHeight - margin) {
-          pdf.addPage();
-          y = margin;
-        }
-      };
-
-      // ── Header ──
-      pdf.setFont('helvetica', 'bold');
-      pdf.setFontSize(18);
-      pdf.text('RentIQ', margin, y);
-      pdf.setFontSize(9);
-      pdf.setFont('helvetica', 'normal');
-      pdf.text('Property Comparison Report', pageWidth - margin, y, { align: 'right' });
-      y += 4;
-      pdf.setDrawColor(0);
-      pdf.setLineWidth(0.5);
-      pdf.line(margin, y, pageWidth - margin, y);
-      y += 6;
-
-      // ── Report date ──
-      pdf.setFontSize(9);
-      pdf.setFont('helvetica', 'normal');
-      const dateStr = new Date().toLocaleDateString('en-US', {
-        year: 'numeric', month: 'long', day: 'numeric',
-      });
-      pdf.text(`Report generated: ${dateStr}`, margin, y);
-      y += 4;
-      pdf.text(`Properties compared: ${compareList.length}`, margin, y);
-      y += 8;
-
-      // ── Property Overview Section ──
-      pdf.setFont('helvetica', 'bold');
-      pdf.setFontSize(12);
-      pdf.text('Property Overview', margin, y);
-      y += 2;
-      pdf.setLineWidth(0.3);
-      pdf.line(margin, y, pageWidth - margin, y);
-      y += 5;
-
-      compareList.forEach((p, idx) => {
-        checkPageBreak(18);
-        pdf.setFont('helvetica', 'bold');
-        pdf.setFontSize(10);
-        pdf.text(`Property ${idx + 1}: ${p.address}`, margin + 2, y);
-        y += 5;
-        pdf.setFont('helvetica', 'normal');
-        pdf.setFontSize(9);
-        pdf.text(`${p.city}, ${p.state}${p.zip_code ? ' ' + p.zip_code : ''}`, margin + 2, y);
-        y += 7;
-      });
-
-      y += 3;
-
-      // ── Comparison Table ──
-      checkPageBreak(20);
-      pdf.setFont('helvetica', 'bold');
-      pdf.setFontSize(12);
-      pdf.text('Side-by-Side Comparison', margin, y);
-      y += 2;
-      pdf.setLineWidth(0.3);
-      pdf.line(margin, y, pageWidth - margin, y);
-      y += 5;
-
-      // Table setup
-      const colCount = compareList.length + 1; // metric label + one per property
-      const labelColWidth = contentWidth * 0.30;
-      const dataColWidth = (contentWidth - labelColWidth) / compareList.length;
-      const rowHeight = 7;
-
-      // Table header row
-      checkPageBreak(rowHeight * 2);
-      pdf.setFillColor(230, 230, 230);
-      pdf.rect(margin, y, contentWidth, rowHeight, 'F');
-      pdf.setFont('helvetica', 'bold');
-      pdf.setFontSize(8);
-      pdf.text('Metric', margin + 2, y + 5);
-      compareList.forEach((p, idx) => {
-        const x = margin + labelColWidth + idx * dataColWidth;
-        const label = p.address.length > 22 ? p.address.substring(0, 22) + '…' : p.address;
-        pdf.text(label, x + 2, y + 5);
-      });
-      y += rowHeight;
-
-      // Draw border for header
-      pdf.setDrawColor(0);
-      pdf.setLineWidth(0.3);
-      pdf.line(margin, y, pageWidth - margin, y);
-
-      // Table data rows
-      metricRows.forEach((row, rIdx) => {
-        checkPageBreak(rowHeight);
-
-        // Alternating row background
-        if (rIdx % 2 === 0) {
-          pdf.setFillColor(245, 245, 245);
-          pdf.rect(margin, y, contentWidth, rowHeight, 'F');
-        }
-
-        pdf.setFont('helvetica', 'normal');
-        pdf.setFontSize(8);
-        pdf.text(row.label, margin + 2, y + 5);
-
-        row.values.forEach((val, idx) => {
-          const x = margin + labelColWidth + idx * dataColWidth;
-          pdf.text(String(val), x + 2, y + 5);
-        });
-
-        y += rowHeight;
-        pdf.setDrawColor(200);
-        pdf.setLineWidth(0.1);
-        pdf.line(margin, y, pageWidth - margin, y);
-      });
-
-      // Table outer border
-      const tableTop = y - (metricRows.length + 1) * rowHeight;
-      pdf.setDrawColor(0);
-      pdf.setLineWidth(0.3);
-      pdf.rect(margin, tableTop, contentWidth, y - tableTop);
-
-      // Vertical column separators
-      let colX = margin + labelColWidth;
-      for (let i = 0; i < compareList.length; i++) {
-        pdf.line(colX, tableTop, colX, y);
-        colX += dataColWidth;
-      }
-
-      y += 10;
-
-      // ── Individual Property Details ──
-      compareList.forEach((p, idx) => {
-        checkPageBreak(50);
-        pdf.setFont('helvetica', 'bold');
-        pdf.setFontSize(11);
-        pdf.text(`Property ${idx + 1} — Detailed Summary`, margin, y);
-        y += 2;
-        pdf.setLineWidth(0.3);
-        pdf.line(margin, y, pageWidth - margin, y);
-        y += 5;
-
-        pdf.setFont('helvetica', 'normal');
-        pdf.setFontSize(9);
-
-        const details = [
-          ['Address', p.address],
-          ['Location', `${p.city}, ${p.state}${p.zip_code ? ' ' + p.zip_code : ''}`],
-          ['Price', formatCurrency(p.price)],
-          ['Estimated Rent', p.estimated_rent ? `${formatCurrency(p.estimated_rent)}/mo` : '—'],
-          ['Profitability Score', p.profitability_score?.toFixed(1) || '—'],
-          ['Cap Rate', formatPercent(p.cap_rate)],
-          ['Cash-on-Cash ROI', formatPercent(p.cash_on_cash_roi)],
-          ['Deal Score', p.deal_score != null ? `${p.deal_score.toFixed(0)}/100` : '—'],
-          ['Area (m²)', p.size_sqft ? `${p.size_sqft.toLocaleString()} m²` : '—'],
-          ['Bedrooms', String(p.bedrooms ?? '—')],
-          ['Bathrooms', String(p.bathrooms ?? '—')],
-          ['Property Type', p.property_type ? p.property_type.replace('_', ' ') : '—'],
-          ['Year Built', String(p.year_built ?? '—')],
-          ['Price / m²', p.price && p.size_sqft ? `$${(parseFloat(p.price) / p.size_sqft).toFixed(2)}` : '—'],
-        ];
-
-        details.forEach(([key, val], dIdx) => {
-          checkPageBreak(6);
-          if (dIdx % 2 === 0) {
-            pdf.setFillColor(245, 245, 245);
-            pdf.rect(margin, y - 3.5, contentWidth, 6, 'F');
-          }
-          pdf.setFont('helvetica', 'bold');
-          pdf.text(`${key}:`, margin + 2, y);
-          pdf.setFont('helvetica', 'normal');
-          pdf.text(String(val), margin + 55, y);
-          y += 6;
-        });
-
-        y += 8;
-      });
-
-      // ── Footer / Disclaimer ──
-      checkPageBreak(20);
-      pdf.setDrawColor(0);
-      pdf.setLineWidth(0.3);
-      pdf.line(margin, y, pageWidth - margin, y);
-      y += 5;
-      pdf.setFont('helvetica', 'italic');
-      pdf.setFontSize(7);
-      pdf.text(
-        'Disclaimer: This report is generated for informational purposes only. Investment performance depends on market conditions,',
-        margin,
-        y
-      );
-      y += 3.5;
-      pdf.text(
-        'maintenance costs, vacancy rates, financing terms, and other factors. RentIQ does not guarantee the accuracy of these estimates.',
-        margin,
-        y
-      );
-      y += 3.5;
-      pdf.text(
-        'Consult a qualified financial advisor before making investment decisions.',
-        margin,
-        y
-      );
-
-      const filename = `RentIQ_Comparison_${compareList.length}_Properties_${new Date().toISOString().slice(0, 10)}.pdf`;
-      pdf.save(filename);
-    } catch (error) {
-      console.error('Error exporting PDF:', error);
-    } finally {
-      setIsExporting(false);
-    }
+      const pw = pdf.internal.pageSize.getWidth(), ph = pdf.internal.pageSize.getHeight(), mg = 15, cw = pw - mg * 2;
+      let y = mg;
+      const br = (n) => { if (y + n > ph - mg) { pdf.addPage(); y = mg; } };
+      pdf.setFont('helvetica','bold');pdf.setFontSize(18);pdf.text('RentIQ',mg,y);pdf.setFontSize(9);pdf.setFont('helvetica','normal');pdf.text('Comparison Report',pw-mg,y,{align:'right'});y+=4;pdf.setDrawColor(0);pdf.setLineWidth(0.5);pdf.line(mg,y,pw-mg,y);y+=8;
+      const lw=cw*0.3,dw=(cw-lw)/compareList.length,rh=7;
+      pdf.setFillColor(230,230,230);pdf.rect(mg,y,cw,rh,'F');pdf.setFont('helvetica','bold');pdf.setFontSize(8);pdf.text('Metric',mg+2,y+5);
+      compareList.forEach((p,i)=>{const x=mg+lw+i*dw;pdf.text(p.address.length>22?p.address.substring(0,22)+'…':p.address,x+2,y+5);});y+=rh;
+      metricRows.forEach((row,ri)=>{br(rh);if(ri%2===0){pdf.setFillColor(245,245,245);pdf.rect(mg,y,cw,rh,'F');}pdf.setFont('helvetica','normal');pdf.setFontSize(8);pdf.text(row.label,mg+2,y+5);row.values.forEach((v,i)=>{pdf.text(String(v),mg+lw+i*dw+2,y+5);});y+=rh;});y+=10;
+      br(15);pdf.setFont('helvetica','italic');pdf.setFontSize(7);pdf.text('Disclaimer: For informational purposes only.',mg,y);
+      pdf.save(`RentIQ_Compare_${new Date().toISOString().slice(0,10)}.pdf`);
+    } catch(e){console.error(e);} finally{setIsExporting(false);}
   };
 
-  // ── CSV Export ──
   const handleExportCSV = () => {
     setIsExporting(true);
     try {
-      const headers = ['Metric', ...compareList.map((p) => p.address)];
-      const rows = metricRows.map((row) => [row.label, ...row.values]);
-
-      const csvContent = [headers, ...rows]
-        .map((row) =>
-          row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(',')
-        )
-        .join('\n');
-
-      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.setAttribute('href', url);
-      link.setAttribute(
-        'download',
-        `RentIQ_Comparison_${compareList.length}_Properties_${new Date().toISOString().slice(0, 10)}.csv`
-      );
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
-    } catch (error) {
-      console.error('Error exporting CSV:', error);
-    } finally {
-      setIsExporting(false);
-    }
+      const h=['Metric',...compareList.map(p=>p.address)];
+      const rows=metricRows.map(r=>[r.label,...r.values]);
+      const csv=[h,...rows].map(r=>r.map(c=>`"${String(c).replace(/"/g,'""')}"`).join(',')).join('\n');
+      const b=new Blob([csv],{type:'text/csv;charset=utf-8;'});const u=URL.createObjectURL(b);const a=document.createElement('a');a.href=u;a.download=`RentIQ_Compare_${new Date().toISOString().slice(0,10)}.csv`;document.body.appendChild(a);a.click();document.body.removeChild(a);URL.revokeObjectURL(u);
+    } catch(e){console.error(e);} finally{setIsExporting(false);}
   };
 
-  const handleExport = (type) => {
-    setShowExportMenu(false);
-    if (type === 'pdf') {
-      handleExportPDF();
-    } else {
-      handleExportCSV();
-    }
-  };
+  const handleExport = (t) => { setShowExportMenu(false); t==='pdf'?handleExportPDF():handleExportCSV(); };
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-8 transition-colors duration-300">
+    <div className="min-h-screen bg-gray-50 py-8">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        {/* Top bar: back button + export controls */}
-        <div className="flex justify-between items-center mb-6">
-          <button
-            onClick={() => navigate('/properties', { state: { compareList } })}
-            className="text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300 flex items-center"
-          >
-            ← Back to Properties
-          </button>
-
-          <div className="relative" ref={exportMenuRef}>
-            <button
-              id="export-button"
-              onClick={() => setShowExportMenu((prev) => !prev)}
-              disabled={isExporting}
-              className={`btn-primary flex items-center gap-2 ${isExporting ? 'opacity-50 cursor-not-allowed' : ''}`}
-            >
-              {isExporting ? (
-                <span className="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
-              ) : (
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                </svg>
-              )}
-              {isExporting ? 'Exporting...' : 'Export'}
-              {!isExporting && (
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                </svg>
-              )}
+        {/* Header */}
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center gap-4">
+            <button onClick={() => navigate('/properties', { state: { compareList } })} className="flex items-center gap-1 text-sm text-gray-500 hover:text-gray-900 transition-colors">
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>
+              Back
             </button>
-
-            {showExportMenu && (
-              <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 rounded-lg shadow-lg dark:shadow-gray-950/40 border border-gray-200 dark:border-gray-700 z-50 overflow-hidden">
-                <button
-                  onClick={() => handleExport('pdf')}
-                  className="w-full text-left px-4 py-3 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-3 transition-colors"
-                >
-                  <svg className="w-4 h-4 text-red-500" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4z" clipRule="evenodd" />
-                  </svg>
-                  Export as PDF
-                </button>
-                <button
-                  onClick={() => handleExport('csv')}
-                  className="w-full text-left px-4 py-3 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-3 transition-colors border-t border-gray-200 dark:border-gray-700"
-                >
-                  <svg className="w-4 h-4 text-green-500" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M6 2a2 2 0 00-2 2v12a2 2 0 002 2h8a2 2 0 002-2V7.414A2 2 0 0015.414 6L12 2.586A2 2 0 0010.586 2H6z" clipRule="evenodd" />
-                  </svg>
-                  Export as CSV
-                </button>
-              </div>
-            )}
+            <h1 className="text-xl font-bold text-gray-900">Compare Properties</h1>
+          </div>
+          <div className="flex gap-2" ref={exportMenuRef}>
+            <button onClick={() => handleExport('pdf')} disabled={isExporting} className="btn-secondary text-xs px-3 py-2 disabled:opacity-50">PDF</button>
+            <button onClick={() => handleExport('csv')} disabled={isExporting} className="btn-secondary text-xs px-3 py-2 disabled:opacity-50">CSV</button>
           </div>
         </div>
 
-        <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-8">Compare Properties</h1>
+        {/* Visual card columns */}
+        <div className={`grid gap-4 mb-8 ${compareList.length === 2 ? 'grid-cols-2' : 'grid-cols-3'}`}>
+          {compareList.map((p) => (
+            <div key={p.id} className="card cursor-pointer" onClick={() => navigate(`/properties/${p.id}`)}>
+              <div className="aspect-[4/3] bg-gray-100">
+                <img src={getStreetViewUrl(p.id)} alt={p.address} className="w-full h-full object-cover" loading="lazy"
+                  onError={(e) => { e.target.style.display = 'none'; }} />
+              </div>
+              <div className="p-4">
+                <p className="font-bold text-gray-900 text-lg">{fc(p.price)}</p>
+                <p className="text-sm text-gray-500 mt-0.5 truncate">{p.address}</p>
+                <p className="text-xs text-gray-400">{p.city}, {p.state}</p>
+              </div>
+            </div>
+          ))}
+        </div>
 
-        <div className="overflow-x-auto bg-white dark:bg-gray-800 rounded-xl shadow dark:shadow-gray-950/30">
-          <table className="min-w-full border-collapse">
+        {/* Metrics table */}
+        <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+          <table className="w-full text-sm">
             <thead>
-              <tr>
-                <th className="p-4 border-b border-gray-200 dark:border-gray-700 text-left bg-gray-50 dark:bg-gray-800/80 text-gray-700 dark:text-gray-300">Metric</th>
-                {compareList.map((property) => (
-                  <th key={property.id} className="p-4 border-b border-gray-200 dark:border-gray-700 text-left bg-gray-50 dark:bg-gray-800/80 min-w-[250px]">
-                    <div>
-                      <p className="font-semibold text-gray-900 dark:text-white">{property.address}</p>
-                      <p className="text-sm text-gray-500 dark:text-gray-400">
-                        {property.city}, {property.state}
-                      </p>
-                      <button
-                        onClick={() => navigate(`/properties/${property.id}`)}
-                        className="mt-2 text-sm text-primary-600 dark:text-primary-400 hover:underline"
-                      >
-                        View Details
-                      </button>
-                    </div>
-                  </th>
+              <tr className="bg-gray-50 border-b border-gray-100">
+                <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Metric</th>
+                {compareList.map((p) => (
+                  <th key={p.id} className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide truncate max-w-[200px]">{p.address}</th>
                 ))}
               </tr>
             </thead>
-
             <tbody>
-              {metricRows.map((row) => (
-                <CompareRow key={row.label} label={row.label} values={row.values} />
-              ))}
+              {metrics.map((m, mi) => {
+                const best = getBestIdx(m);
+                return (
+                  <tr key={m.label} className={mi % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'}>
+                    <td className="px-4 py-2.5 text-gray-600 font-medium">{m.label}</td>
+                    {compareList.map((p, pi) => (
+                      <td key={p.id} className={`px-4 py-2.5 ${pi === best ? 'text-green-600 font-semibold' : 'text-gray-700'}`}>
+                        {m.fmt(p)}
+                      </td>
+                    ))}
+                  </tr>
+                );
+              })}
+              {isAuthenticated && (
+                <tr className={metrics.length % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'}>
+                  <td className="px-4 py-2.5 text-gray-600 font-medium align-top">My Notes</td>
+                  {compareList.map((p) => (
+                    <td key={p.id} className="px-4 py-2.5 text-gray-700 whitespace-pre-wrap align-top">
+                      {notesMap[p.id]?.body || <span className="text-gray-300 italic">No notes</span>}
+                    </td>
+                  ))}
+                </tr>
+              )}
             </tbody>
           </table>
         </div>
@@ -417,16 +179,5 @@ const PropertyCompare = () => {
     </div>
   );
 };
-
-const CompareRow = ({ label, values }) => (
-  <tr>
-    <td className="p-4 border-b border-gray-200 dark:border-gray-700 font-medium text-gray-700 dark:text-gray-300 bg-gray-50 dark:bg-gray-800/80">{label}</td>
-    {values.map((value, index) => (
-      <td key={index} className="p-4 border-b border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-100">
-        {value}
-      </td>
-    ))}
-  </tr>
-);
 
 export default PropertyCompare;
