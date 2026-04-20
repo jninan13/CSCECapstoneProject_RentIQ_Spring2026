@@ -42,7 +42,6 @@ async def get_favorites(
             property_data.gross_yield = analysis.gross_yield
             property_data.net_yield = analysis.net_yield
             property_data.cash_on_cash_roi = analysis.cash_on_cash_roi
-            property_data.deal_score = analysis.deal_score
         property_data.is_favorited = True
         
         result.append({

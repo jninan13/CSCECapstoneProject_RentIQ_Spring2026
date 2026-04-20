@@ -191,7 +191,6 @@ async def search_properties(
             response_obj.gross_yield = analysis.gross_yield
             response_obj.net_yield = analysis.net_yield
             response_obj.cash_on_cash_roi = analysis.cash_on_cash_roi
-            response_obj.deal_score = analysis.deal_score
         properties.append(response_obj)
     
     # Add favorite status if user is authenticated
@@ -233,7 +232,6 @@ async def get_property(
         property_response.gross_yield = analysis.gross_yield
         property_response.net_yield = analysis.net_yield
         property_response.cash_on_cash_roi = analysis.cash_on_cash_roi
-        property_response.deal_score = analysis.deal_score
     
     # Check if favorited
     if current_user:
@@ -364,8 +362,7 @@ async def get_property_investment_analysis(
 ):
     """
     Return a detailed investment analysis for a single property, including
-    cash flow breakdown, cap rate, yields, cash-on-cash ROI, IRR and a
-    high-level "deal score".
+    cash flow breakdown, cap rate, yields, cash-on-cash ROI, and IRR.
     """
     property_obj = db.query(Property).filter(Property.id == property_id).first()
 
@@ -432,7 +429,6 @@ async def get_property_investment_analysis(
         break_even_years=analysis.break_even_years,
         total_roi_horizon=analysis.total_roi_horizon,
         irr=analysis.irr,
-        deal_score=analysis.deal_score,
         assumptions=assumptions_schema,
         cash_flow=cash_flow_schema,
     )
@@ -465,8 +461,6 @@ Estimated Monthly Rent: ${float(property_obj.estimated_rent):,.0f}
 === SCORES ===
 Profitability Score: {property_obj.profitability_score:.1f}/100
   (Factors: gross rental yield, price per m², property age, property type preference, and market/macro conditions)
-Deal Score: {analysis.deal_score:.0f}/100
-  (Based on cap rate contribution up to 100 pts: 4% cap -> 40 pts, 8%+ -> 100 pts; plus cash-on-cash ROI contribution up to 40 pts: 5% -> 20 pts, 15%+ -> 40 pts)
 
 === KEY FINANCIAL METRICS ===
 Cap Rate: {f'{analysis.cap_rate * 100:.2f}%' if analysis.cap_rate is not None else 'N/A'}
@@ -501,7 +495,7 @@ Analysis Horizon: {a.analysis_horizon_years} years
 === INSTRUCTIONS ===
 Write 2-4 concise paragraphs that:
 1. Explain what the profitability score of {property_obj.profitability_score:.1f} means and what likely drove it higher or lower.
-2. Interpret the deal score and key financial metrics (cap rate, cash-on-cash ROI, cash flow) in everyday terms.
+2. Interpret the key financial metrics (cap rate, cash-on-cash ROI, cash flow) in everyday terms.
 3. Highlight the main strengths and risks of this investment.
 4. Give a brief overall assessment of whether this looks like a strong, moderate, or weak investment opportunity.
 

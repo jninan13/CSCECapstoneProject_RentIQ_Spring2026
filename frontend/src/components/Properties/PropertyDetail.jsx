@@ -99,7 +99,7 @@ const PropertyDetail = () => {
       pdf.setFont('helvetica','bold');pdf.setFontSize(14);pdf.text(property.address,m,y);y+=5;pdf.setFont('helvetica','normal');pdf.setFontSize(10);pdf.text(`${property.city}, ${property.state} ${property.zip_code||''}`,m,y);y+=8;
       sec('Key Metrics',[['Price',fc(property.price)],['Profitability Score',property.profitability_score?.toFixed(1)||'—'],['Est. Monthly Rent',property.estimated_rent?`${fc(property.estimated_rent)}/mo`:'—']]);
       sec('Property Details',[['Sqft',property.size_sqft?`${Math.round(property.size_sqft * 10.7639).toLocaleString()} sqft`:'—'],['Bedrooms',String(property.bedrooms??'—')],['Bathrooms',String(property.bathrooms??'—')],['Type',property.property_type?property.property_type.replace('_',' '):'—'],['Year Built',String(property.year_built??'—')]]);
-      if(analysis){sec('Investment Analysis',[['Cap Rate',fp(analysis.metrics.cap_rate)],['Cash-on-Cash ROI',fp(analysis.metrics.cash_on_cash_roi)],[`${analysis.metrics.assumptions.analysis_horizon_years}-Year ROI`,fp(analysis.metrics.total_roi_horizon)],['Deal Score',analysis.metrics.deal_score!=null?`${analysis.metrics.deal_score.toFixed(0)}/100`:'—']]);}
+      if(analysis){sec('Investment Analysis',[['Cap Rate',fp(analysis.metrics.cap_rate)],['Cash-on-Cash ROI',fp(analysis.metrics.cash_on_cash_roi)],[`${analysis.metrics.assumptions.analysis_horizon_years}-Year ROI`,fp(analysis.metrics.total_roi_horizon)]]);}
       br(15);pdf.setDrawColor(0);pdf.setLineWidth(0.3);pdf.line(m,y,pw-m,y);y+=5;pdf.setFont('helvetica','italic');pdf.setFontSize(7);pdf.text('Disclaimer: For informational purposes only.',m,y);
       pdf.save(`RentIQ_${property.address.replace(/[\W_]+/g,'_')}.pdf`);
     } catch(e){console.error(e);} finally{setIsExporting(false);}
@@ -109,7 +109,7 @@ const PropertyDetail = () => {
     try{
       const fc=(v)=>v!=null?`$${parseFloat(v).toLocaleString()}`:'—';const fp=(v)=>v!=null?`${(v*100).toFixed(1)}%`:'—';
       const rows=[['Field','Value'],['Address',property.address],['City',property.city],['Price',fc(property.price)],['Score',property.profitability_score?.toFixed(1)||'—'],['Sqft',property.size_sqft?Math.round(property.size_sqft*10.7639).toLocaleString():'—'],['Beds',String(property.bedrooms??'—')],['Baths',String(property.bathrooms??'—')]];
-      if(analysis){rows.push(['',''],['Cap Rate',fp(analysis.metrics.cap_rate)],['Cash-on-Cash',fp(analysis.metrics.cash_on_cash_roi)],['Deal Score',analysis.metrics.deal_score!=null?`${analysis.metrics.deal_score.toFixed(0)}/100`:'—']);}
+      if(analysis){rows.push(['',''],['Cap Rate',fp(analysis.metrics.cap_rate)],['Cash-on-Cash',fp(analysis.metrics.cash_on_cash_roi)]);}
       const csv=rows.map(r=>r.map(c=>`"${String(c).replace(/"/g,'""')}"`).join(',')).join('\n');
       const b=new Blob([csv],{type:'text/csv;charset=utf-8;'});const u=URL.createObjectURL(b);const a=document.createElement('a');a.href=u;a.download=`RentIQ_${property.address.replace(/[\W_]+/g,'_')}.csv`;document.body.appendChild(a);a.click();document.body.removeChild(a);URL.revokeObjectURL(u);
     }catch(e){console.error(e);}finally{setIsExporting(false);}
@@ -191,11 +191,10 @@ const PropertyDetail = () => {
                   <p className="text-sm text-gray-400">Loading investment metrics...</p>
                 ) : analysis && (
                   <>
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
-                      <MetricCard label="Cap Rate" value={analysis.metrics.cap_rate} fmt="pct" />
-                      <MetricCard label="Cash-on-Cash" value={analysis.metrics.cash_on_cash_roi} fmt="pct" />
-                      <MetricCard label={`${analysis.metrics.assumptions.analysis_horizon_years}Y ROI`} value={analysis.metrics.total_roi_horizon} fmt="pct" />
-                      <MetricCard label="Deal Score" value={analysis.metrics.deal_score} fmt="score" />
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-6">
+                      <MetricCard label="Cap Rate" value={analysis.metrics.cap_rate} />
+                      <MetricCard label="Cash-on-Cash" value={analysis.metrics.cash_on_cash_roi} />
+                      <MetricCard label={`${analysis.metrics.assumptions.analysis_horizon_years}Y ROI`} value={analysis.metrics.total_roi_horizon} />
                     </div>
 
                     {/* AI Explanation */}
@@ -331,9 +330,9 @@ const PropertyDetail = () => {
 
 export default PropertyDetail;
 
-const MetricCard = ({ label, value, fmt }) => {
+const MetricCard = ({ label, value }) => {
   if (value == null) return null;
-  const d = fmt === 'pct' ? `${(value*100).toFixed(1)}%` : `${value.toFixed(0)}/100`;
+  const d = `${(value * 100).toFixed(1)}%`;
   return (
     <div className="bg-gray-50 rounded-lg p-3">
       <p className="text-xs text-gray-500 mb-0.5">{label}</p>

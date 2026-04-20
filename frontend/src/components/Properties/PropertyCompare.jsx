@@ -50,7 +50,6 @@ const PropertyCompare = () => {
     { label: 'Est. Rent', key: 'estimated_rent', fmt: (p) => p.estimated_rent ? `${fc(p.estimated_rent)}/mo` : '—', best: 'high' },
     { label: 'Cap Rate', key: 'cap_rate', fmt: (p) => fp(p.cap_rate), best: 'high' },
     { label: 'Cash-on-Cash', key: 'cash_on_cash_roi', fmt: (p) => fp(p.cash_on_cash_roi), best: 'high' },
-    { label: 'Deal Score', key: 'deal_score', fmt: (p) => p.deal_score != null ? `${p.deal_score.toFixed(0)}/100` : '—', best: 'high' },
     { label: 'Sqft', key: 'size_sqft', fmt: (p) => p.size_sqft ? Math.round(p.size_sqft * 10.7639).toLocaleString() : '—', best: 'high' },
     { label: 'Beds', key: 'bedrooms', fmt: (p) => String(p.bedrooms ?? '—') },
     { label: 'Baths', key: 'bathrooms', fmt: (p) => String(p.bathrooms ?? '—') },

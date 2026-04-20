@@ -136,7 +136,6 @@ def test_explain_prompt_contains_property_data(mock_genai, client, db):
     assert "Cap Rate" in prompt_text
     assert "Cash-on-Cash ROI" in prompt_text
     assert "Profitability Score" in prompt_text
-    assert "Deal Score" in prompt_text
     assert "Annual Cash Flow" in prompt_text
 
 

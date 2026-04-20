@@ -407,6 +407,5 @@ def test_chat_system_prompt_contains_scoring_info(mock_genai, client, db):
     conversation = mock_model.generate_content.call_args[0][0]
     system_text = conversation[0]["parts"][0]
     assert "Profitability Score" in system_text
-    assert "Deal Score" in system_text
     assert "cap rate" in system_text.lower()
     assert "RentIQ Assistant" in system_text

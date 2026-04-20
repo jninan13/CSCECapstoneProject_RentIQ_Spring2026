@@ -61,7 +61,6 @@ class InvestmentMetrics:
     break_even_years: Optional[float]
     total_roi_horizon: Optional[float]
     irr: Optional[float]
-    deal_score: Optional[float]
     assumptions: InvestmentAssumptions
     cash_flow: CashFlowBreakdown
 
@@ -270,30 +269,6 @@ def analyze_investment(
 
     irr = _compute_simple_irr(cash_flows)
 
-    # Deal score: combine profitability and risk proxy (here just profitability)
-    # Base on cap rate and cash-on-cash, normalized to 0-100
-    profit_score = 0.0
-    if cap_rate is not None:
-        # 4% -> 40, 8%+ -> 100
-        if cap_rate <= 0.04:
-            profit_score += 40 * (cap_rate / 0.04)
-        elif cap_rate >= 0.08:
-            profit_score += 100
-        else:
-            profit_score += 40 + (cap_rate - 0.04) / (0.08 - 0.04) * 60
-
-    if cash_on_cash is not None:
-        # 5% -> +20, 15%+ -> +40
-        if cash_on_cash <= 0.05:
-            profit_score += 20 * (cash_on_cash / 0.05)
-        elif cash_on_cash >= 0.15:
-            profit_score += 40
-        else:
-            profit_score += 20 + (cash_on_cash - 0.05) / (0.15 - 0.05) * 20
-
-    # Scale/clip 0-100
-    deal_score = max(0.0, min(100.0, profit_score))
-
     return InvestmentMetrics(
         cap_rate=cap_rate,
         gross_yield=gross_yield,
@@ -302,7 +277,6 @@ def analyze_investment(
         break_even_years=break_even_years,
         total_roi_horizon=total_roi_horizon,
         irr=irr,
-        deal_score=deal_score,
         assumptions=assumptions,
         cash_flow=cash_flow,
     )

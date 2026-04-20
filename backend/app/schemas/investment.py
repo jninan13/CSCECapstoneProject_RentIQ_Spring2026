@@ -50,7 +50,6 @@ class InvestmentMetricsSchema(BaseModel):
     break_even_years: float | None
     total_roi_horizon: float | None
     irr: float | None
-    deal_score: float | None
 
     assumptions: InvestmentAssumptionsSchema
     cash_flow: CashFlowBreakdownSchema
