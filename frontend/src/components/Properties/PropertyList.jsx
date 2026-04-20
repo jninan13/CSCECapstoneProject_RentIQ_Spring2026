@@ -235,14 +235,6 @@ const PropertyList = () => {
                 >
                   Next
                 </button>
-
-                <button
-                  onClick={() => handlePageChange(currentPage + 1)}
-                  disabled={properties.length < PAGE_SIZE || loading}
-                  className="btn-secondary disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  Last
-                </button>
               </div>
             </div>
           </>
