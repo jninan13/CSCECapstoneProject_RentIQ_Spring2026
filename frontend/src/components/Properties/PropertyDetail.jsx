@@ -143,19 +143,21 @@ const PropertyDetail = () => {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Hero Image */}
-      <div className="relative bg-gray-200 h-72 sm:h-96">
-        {!imgError ? (
-          <img src={getStreetViewUrl(property.id)} alt={property.address} className="w-full h-full object-cover" loading="lazy" onError={() => setImgError(true)} />
-        ) : (
-          <div className="w-full h-full flex items-center justify-center text-gray-300">
-            <svg className="w-16 h-16" fill="none" stroke="currentColor" strokeWidth={1} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" /></svg>
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6">
+        <div className="relative bg-gray-200 rounded-xl overflow-hidden h-72 sm:h-96">
+          {!imgError ? (
+            <img src={getStreetViewUrl(property.id)} alt={property.address} className="w-full h-full object-cover" loading="lazy" onError={() => setImgError(true)} />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center text-gray-300">
+              <svg className="w-16 h-16" fill="none" stroke="currentColor" strokeWidth={1} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" /></svg>
+            </div>
+          )}
+          <div className="absolute top-4 left-4">
+            <button onClick={() => navigate(`/properties?page=${fromPage}`)} className="flex items-center gap-1.5 bg-white/90 backdrop-blur-sm rounded-lg px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-white shadow-sm transition-colors">
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>
+              Back
+            </button>
           </div>
-        )}
-        <div className="absolute top-4 left-4">
-          <button onClick={() => navigate(`/properties?page=${fromPage}`)} className="flex items-center gap-1.5 bg-white/90 backdrop-blur-sm rounded-lg px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-white shadow-sm transition-colors">
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>
-            Back
-          </button>
         </div>
       </div>
 
